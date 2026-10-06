@@ -41,7 +41,7 @@
                 app:tint="@color/wenge"/>
         </LinearLayout>
         <ImageView
-            android:id="@+id/login_header_logp"
+            android:id="@+id/login_header_logo"
             android:layout_width="70dp"
             android:layout_height="70dp"
             android:layout_margin="20dp"
@@ -73,7 +73,7 @@
             android:id="@+id/login_main_card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@drawable/login_card"
+            android:background="@drawable/white_rectangle_rounded_greygoose_stroke"
             android:orientation="horizontal"
             android:layout_marginHorizontal="20dp"
             android:layout_marginTop="10dp"
@@ -88,7 +88,7 @@
                     android:id="@+id/login_main_card_profile_image"
                     android:layout_width="60dp"
                     android:layout_height="60dp"
-                    android:background="@drawable/avatar_circle"
+                    android:background="@drawable/teal_circle"
                     android:text="JW"
                     android:textStyle="bold"
                     android:textColor="@color/white"
@@ -100,13 +100,13 @@
                     android:id="@+id/login_main_card_profile_notification"
                     android:layout_width="20dp"
                     android:layout_height="20dp"
-                    android:background="@drawable/notification_circle"
+                    android:background="@drawable/chestnutred_circle_white_stroke"
                     android:text="2"
                     android:textStyle="bold"
                     android:textColor="@color/white"
                     android:textSize="12sp"
-                    android:layout_alignTop="@+id/login_main_card_profile_image"
-                    android:layout_alignEnd="@+id/login_main_card_profile_image"
+                    android:layout_alignTop="@id/login_main_card_profile_image"
+                    android:layout_alignEnd="@id/login_main_card_profile_image"
                     android:gravity="center"
                     android:layout_marginTop="-2dp"
                     android:layout_marginEnd="-2dp"/>
@@ -135,6 +135,7 @@
                     android:textSize="14sp"/>
             </LinearLayout>
             <ImageView
+                android:id="@+id/login_main_card_setting"
                 android:layout_width="0dp"
                 android:layout_height="25dp"
                 android:layout_weight="1"
@@ -144,62 +145,69 @@
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/login_main_email"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@drawable/login_card"
+            android:background="@drawable/white_rectangle_rounded_greygoose_stroke"
             android:layout_marginHorizontal="20dp"
             android:layout_marginTop="10dp"
             android:paddingHorizontal="18dp"
             android:paddingVertical="9dp">
             <LinearLayout
+                android:id="@+id/login_main_email_layout"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:orientation="vertical">
                 <TextView
+                    android:id="@+id/login_main_email_layout_header"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="Mobile number or email"
                     android:textSize="12sp"
                     android:textColor="@color/wenge"/>
                 <EditText
+                    android:id="@+id/login_main_email_layout_entry"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:textSize="12sp"
-                    android:hint="testusername1234"
                     android:background="@null"
                     android:layout_marginTop="5dp"/>
             </LinearLayout>
         </LinearLayout>
         <LinearLayout
+            android:id="@+id/login_main_password"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@drawable/login_card"
+            android:background="@drawable/white_rectangle_rounded_greygoose_stroke"
             android:layout_marginHorizontal="20dp"
             android:layout_marginTop="10dp"
             android:paddingHorizontal="18dp"
             android:paddingVertical="9dp">
             <LinearLayout
+                android:id="@+id/login_main_password_layout"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:orientation="vertical">
                 <TextView
+                    android:id="@+id/login_main_password_layout_header"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="Password"
                     android:textSize="12sp"
                     android:textColor="@color/wenge"/>
                 <EditText
+                    android:id="@+id/login_main_password_layout_entry"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:textSize="12sp"
                     android:inputType="textPassword"
-                    android:hint="testpassword1234"
                     android:background="@null"
                     android:layout_marginTop="5dp"/>
             </LinearLayout>
             <ImageView
+                android:id="@+id/login_main_password_icon"
                 android:layout_width="20dp"
                 android:layout_height="20dp"
                 android:layout_marginHorizontal="8dp"
@@ -208,6 +216,7 @@
                 android:layout_gravity="center"/>
         </LinearLayout>
         <Button
+            android:id="@+id/login_main_loginbutton"
             android:layout_width="match_parent"
             android:layout_height="50dp"
             android:layout_marginHorizontal="20dp"
@@ -215,14 +224,16 @@
             android:text="Log in"
             android:textStyle="bold"
             android:textColor="@color/white"
-            android:background="@drawable/login_button"
+            android:textSize="15sp"
+            android:background="@drawable/teal_rectangle_rounded"
             app:backgroundTint="@null" />
         <TextView
+            android:id="@+id/login_main_forgetpassword"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Forgot password?"
             android:textSize="13sp"
-            android:textColor="@color/teal_main"
+            android:textColor="@color/teal"
             android:textStyle="bold"
             android:layout_gravity="center"
             android:layout_marginTop="18dp"
@@ -246,21 +257,25 @@
         android:orientation="vertical"
         android:gravity="center">
         <Button
+            android:id="@+id/login_footer_createaccountbutton"
             android:layout_width="match_parent"
             android:layout_height="50dp"
             android:layout_marginHorizontal="20dp"
             android:layout_marginTop="10dp"
             android:text="Create new account"
             android:textStyle="bold"
-            android:textColor="@color/teal_main"
+            android:textColor="@color/teal"
+            android:textSize="15sp"
             app:backgroundTint="@null"
-            android:background="@drawable/create_account_button"/>
+            android:background="@drawable/transparent_rectangle_rounded_teal_stroke"/>
         <LinearLayout
+            android:id="@+id/login_footer_subtext"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center">
             <ImageView
+                android:id="@+id/login_footer_subtext_logo"
                 android:layout_width="20dp"
                 android:layout_height="18dp"
                 android:src="@drawable/logo_transparent"
@@ -268,6 +283,7 @@
                 app:tint="@color/wenge"
                 android:layout_marginTop="1dp"/>
             <TextView
+                android:id="@+id/login_footer_subtext_info"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Kinnect · from SMD"

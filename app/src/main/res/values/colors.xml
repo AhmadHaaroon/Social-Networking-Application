@@ -2,7 +2,7 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="teal_main">#0B5F63</color>
+    <color name="teal">#0B5F63</color>
     <color name="edgewater">#C8E3D7</color>
     <color name="seashell">#F4F2EE</color>
     <color name="chestnut_red">#C34A2C</color>
