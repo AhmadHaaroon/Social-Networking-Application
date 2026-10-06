@@ -1,0 +1,515 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/seashell">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="70dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="16dp"
+        android:background="@color/white">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="kinnect"
+            android:textColor="@color/teal"
+            android:textSize="34sp"
+            android:textStyle="bold" />
+
+        <ImageView
+            android:id="@+id/home_search"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:padding="9dp"
+            android:background="@drawable/greenwhite_circle"
+            android:contentDescription="Search"
+            android:src="@drawable/search"
+            app:tint="@color/wenge" />
+
+        <ImageView
+            android:id="@+id/home_chats"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginStart="8dp"
+            android:padding="9dp"
+            android:background="@drawable/greenwhite_circle"
+            android:contentDescription="Chats"
+            android:src="@drawable/message"
+            app:tint="@color/wenge" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="70dp"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:background="@color/white"
+        android:elevation="2dp">
+
+        <RelativeLayout
+            android:id="@+id/nav_home"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:background="@color/white">
+            <ImageView
+                android:id="@+id/nav_home_icon"
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:contentDescription="Home"
+                android:layout_centerInParent="true"
+                android:src="@drawable/home"
+                app:tint="@color/teal" />
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="3dp"
+                android:layout_alignParentBottom="true"
+                android:background="@color/teal" />
+        </RelativeLayout>
+
+        <RelativeLayout
+            android:id="@+id/nav_friends"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <ImageView
+                android:id="@+id/nav_friends_icon"
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:contentDescription="Friends"
+                android:src="@drawable/multi_user_icon"
+                android:layout_centerInParent="true"
+                app:tint="@color/wenge" />
+        </RelativeLayout>
+
+        <RelativeLayout
+            android:id="@+id/nav_marketplace"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <ImageView
+                android:id="@+id/nav_marketplace_icon"
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:contentDescription="Marketplace"
+                android:src="@drawable/marketplace"
+                app:tint="@color/wenge" />
+        </RelativeLayout>
+
+        <RelativeLayout
+            android:id="@+id/nav_notifications"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <ImageView
+                android:id="@+id/nav_notifications_icon"
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:contentDescription="Notifications"
+                android:src="@drawable/bell"
+                app:tint="@color/wenge" />
+            <TextView
+                android:id="@+id/login_main_card_profile_notification"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:background="@drawable/chestnutred_circle_white_stroke"
+                android:text="2"
+                android:textStyle="bold"
+                android:textColor="@color/white"
+                android:textSize="12sp"
+                android:layout_alignTop="@id/nav_notifications_icon"
+                android:layout_alignEnd="@id/nav_notifications_icon"
+                android:gravity="center"
+                android:layout_marginTop="-8dp"
+                android:layout_marginEnd="-8dp"/>
+        </RelativeLayout>
+
+        <LinearLayout
+            android:id="@+id/nav_menu"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <ImageView
+                android:id="@+id/nav_menu_icon"
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:contentDescription="Menu"
+                android:src="@drawable/menu"
+                app:tint="@color/wenge" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true"
+        android:clipToPadding="false">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="76dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="16dp"
+                android:background="@color/white">
+
+                <TextView
+                    android:id="@+id/home_profile_avatar"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/teal_circle"
+                    android:gravity="center"
+                    android:text="JW"
+                    android:textColor="@color/white"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/home_create_post"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="12dp"
+                    android:background="@drawable/white_rectangle_rounded_greygoose_stroke"
+                    android:gravity="center_vertical"
+                    android:paddingHorizontal="18dp"
+                    android:text="What's on your mind, Jacob?"
+                    android:textColor="@color/wenge"
+                    android:textSize="16sp" />
+
+                <ImageView
+                    android:id="@+id/home_create_post_image"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_marginStart="14dp"
+                    android:contentDescription="Add photo"
+                    android:src="@drawable/image"
+                    app:tint="@color/teal" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="10dp"
+                android:background="@color/grey_goose" />
+
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="290dp"
+                android:scrollbars="none"
+                android:background="@color/white">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="14dp"
+                    android:paddingVertical="14dp">
+
+                    <FrameLayout
+                        android:id="@+id/home_create_story"
+                        android:layout_width="158dp"
+                        android:layout_height="260dp"
+                        android:layout_marginEnd="10dp"
+                        android:background="@drawable/white_rectangle_rounded_greygoose_stroke"
+                        android:clipToOutline="true">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="180dp"
+                            android:orientation="vertical"
+                            android:gravity="center"
+                            android:background="@drawable/edgewater_rectangle_rounded_greygoose_stroke">
+
+                            <TextView
+                                android:id="@+id/story_add_avatar"
+                                android:layout_width="92dp"
+                                android:layout_height="92dp"
+                                android:background="@drawable/teal_circle"
+                                android:gravity="center"
+                                android:text="JW"
+                                android:textColor="@color/white"
+                                android:textSize="24sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="80dp"
+                            android:layout_gravity="bottom"
+                            android:gravity="center"
+                            android:text="Create story"
+                            android:textColor="@color/black"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+                    </FrameLayout>
+
+                    <FrameLayout
+                        android:id="@+id/home_story_omar"
+                        android:layout_width="158dp"
+                        android:layout_height="260dp"
+                        android:layout_marginEnd="10dp">
+
+                        <ImageView
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/placeholder_2" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="bottom|start"
+                            android:layout_marginStart="12dp"
+                            android:layout_marginBottom="12dp"
+                            android:text="Omar Farooq"
+                            android:textColor="@color/white"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+                    </FrameLayout>
+
+                    <FrameLayout
+                        android:id="@+id/home_story_sara"
+                        android:layout_width="158dp"
+                        android:layout_height="260dp"
+                        android:layout_marginEnd="10dp">
+
+                        <ImageView
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/placeholder_3" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="bottom|start"
+                            android:layout_marginStart="12dp"
+                            android:layout_marginBottom="12dp"
+                            android:text="Sara Iqbal"
+                            android:textColor="@color/white"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+                    </FrameLayout>
+
+                    <FrameLayout
+                        android:layout_width="158dp"
+                        android:layout_height="260dp">
+
+                        <ImageView
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/placeholder_4" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="bottom|start"
+                            android:layout_marginStart="12dp"
+                            android:layout_marginBottom="12dp"
+                            android:text="Hamza"
+                            android:textColor="@color/white"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+                    </FrameLayout>
+                </LinearLayout>
+            </HorizontalScrollView>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="10dp"
+                android:background="@color/grey_goose" />
+
+            <!-- Feed post -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@color/white">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="76dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingHorizontal="16dp">
+
+                    <TextView
+                        android:id="@+id/home_post_avatar"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:background="@drawable/circle_purple"
+                        android:gravity="center"
+                        android:text="LM"
+                        android:textColor="@color/white"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="12dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Lina Marsh is at Clifton Beach"
+                            android:textColor="@color/black"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:text="2h · Public"
+                            android:textColor="@color/wenge"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:id="@+id/home_post_more"
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
+                        android:contentDescription="More options"
+                        android:src="@drawable/dots_horizontal"
+                        app:tint="@color/wenge" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="16dp"
+                    android:paddingBottom="14dp"
+                    android:text="Sunset walk with the crew. Worth every grain of sand in my shoes."
+                    android:textColor="@color/black"
+                    android:textSize="16sp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="400dp"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/placeholder_1" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <ImageView
+                            android:layout_width="match_parent"
+                            android:layout_height="0dp"
+                            android:layout_weight="1"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/placeholder_2" />
+
+                        <ImageView
+                            android:layout_width="match_parent"
+                            android:layout_height="0dp"
+                            android:layout_weight="1"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/placeholder_3" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingHorizontal="16dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Aisha and 1.2K others"
+                        android:textColor="@color/wenge"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="86 comments · 12 shares"
+                        android:textColor="@color/wenge"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginHorizontal="16dp"
+                    android:background="@color/grey_goose" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="58dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/home_like"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:text="Like"
+                        android:textColor="@color/wenge"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/home_comment"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:text="Comment"
+                        android:textColor="@color/wenge"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:text="Share"
+                        android:textColor="@color/wenge"
+                        android:textSize="14sp" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

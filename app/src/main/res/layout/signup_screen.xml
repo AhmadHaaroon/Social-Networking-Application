@@ -30,6 +30,7 @@
             android:layout_marginStart="12dp"
             android:text="Create account"
             android:textSize="20sp"
+            android:textColor="@color/black"
             android:textStyle="bold"/>
 
         <TextView
@@ -81,7 +82,7 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
+        android:layout_weight="1.45"
         android:layout_marginTop="8dp"
         android:layout_marginBottom="8dp"
         android:orientation="horizontal"
@@ -152,7 +153,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="@null"
-                android:textSize="16sp"/>
+                android:textColor="@color/black"
+                android:textSize="14sp"/>
 
         </LinearLayout>
 
@@ -180,7 +182,8 @@
             <EditText
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textSize="16sp"
+                android:textSize="14sp"
+                android:textColor="@color/black"
                 android:background="@null"/>
 
         </LinearLayout>
@@ -196,7 +199,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Birthday  "
-            android:textSize="16sp"
+            android:textSize="14sp"
+            android:textColor="@color/black"
             android:textStyle="bold"/>
         <ImageView
             android:layout_width="17dp"
@@ -226,23 +230,41 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:background="@drawable/white_rectangle_rounded_greygoose_stroke"
-                android:paddingVertical="10dp"
-                android:paddingHorizontal="15dp"
-                android:orientation="vertical">
+                android:orientation="horizontal">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:paddingVertical="10dp"
+                    android:paddingHorizontal="15dp"
+                    android:orientation="vertical"
+                    android:gravity="start">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Day"
+                        android:textSize="12sp"
+                        android:textColor="@color/wenge" />
 
-                <TextView
+                    <EditText
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="14"
+                        android:textColor="@color/black"
+                        android:textSize="14sp"
+                        android:background="@null"/>
+                </LinearLayout>
+                <LinearLayout
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Day"
-                    android:textSize="12sp"
-                    android:textColor="@color/wenge" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="14"
-                    android:textSize="17sp" />
-
+                    android:layout_height="match_parent"
+                    android:paddingHorizontal="10dp">
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/chevron_down"
+                        android:layout_gravity="center"
+                        app:tint="@color/wenge"/>
+                </LinearLayout>
             </LinearLayout>
 
             <View
@@ -255,23 +277,41 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:background="@drawable/white_rectangle_rounded_greygoose_stroke"
-                android:paddingVertical="10dp"
-                android:paddingHorizontal="15dp"
-                android:orientation="vertical">
+                android:orientation="horizontal">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:paddingVertical="10dp"
+                    android:paddingHorizontal="15dp"
+                    android:orientation="vertical"
+                    android:gravity="start">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Month"
+                        android:textSize="12sp"
+                        android:textColor="@color/wenge" />
 
-                <TextView
+                    <EditText
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Mar"
+                        android:textSize="14sp"
+                        android:textColor="@color/black"
+                        android:background="@null"/>
+                </LinearLayout>
+                <LinearLayout
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Month"
-                    android:textSize="12sp"
-                    android:textColor="@color/wenge" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Mar"
-                    android:textSize="17sp" />
-
+                    android:layout_height="match_parent"
+                    android:paddingHorizontal="10dp">
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/chevron_down"
+                        android:layout_gravity="center"
+                        app:tint="@color/wenge"/>
+                </LinearLayout>
             </LinearLayout>
 
             <View
@@ -284,23 +324,41 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:background="@drawable/white_rectangle_rounded_greygoose_stroke"
-                android:paddingVertical="10dp"
-                android:paddingHorizontal="15dp"
-                android:orientation="vertical">
+                android:orientation="horizontal">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:paddingVertical="10dp"
+                    android:paddingHorizontal="15dp"
+                    android:orientation="vertical"
+                    android:gravity="start">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Year"
+                        android:textSize="12sp"
+                        android:textColor="@color/wenge" />
 
-                <TextView
+                    <EditText
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="2004"
+                        android:textSize="14sp"
+                        android:textColor="@color/black"
+                        android:background="@null"/>
+                </LinearLayout>
+                <LinearLayout
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Year"
-                    android:textSize="12sp"
-                    android:textColor="@color/wenge" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="2004"
-                    android:textSize="17sp" />
-
+                    android:layout_height="match_parent"
+                    android:paddingHorizontal="10dp">
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/chevron_down"
+                        android:layout_gravity="center"
+                        app:tint="@color/wenge"/>
+                </LinearLayout>
             </LinearLayout>
 
         </LinearLayout>
@@ -312,8 +370,9 @@
         android:layout_height="0dp"
         android:layout_weight="0.4"
         android:text="Gender"
-        android:textSize="16sp"
+        android:textSize="14sp"
         android:textStyle="bold"
+        android:textColor="@color/black"
         android:gravity="center_vertical"/>
 
     <LinearLayout
@@ -344,7 +403,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="Female"
-                    android:textSize="17sp"
+                    android:textSize="14sp"
                     android:textColor="@color/wenge"/>
                 <ImageView
                     android:layout_width="20dp"
@@ -355,7 +414,7 @@
             <View
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="0.075"/>
+                android:layout_weight="0.06"/>
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -370,7 +429,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="Male"
-                    android:textSize="17sp"
+                    android:textSize="14sp"
                     android:textStyle="bold"
                     android:textColor="@color/wenge"/>
                 <ImageView
@@ -382,7 +441,7 @@
             <View
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="0.075"/>
+                android:layout_weight="0.06"/>
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -397,7 +456,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="Custom"
-                    android:textSize="17sp"
+                    android:textSize="14sp"
                     android:textColor="@color/wenge"/>
                 <ImageView
                     android:layout_width="20dp"
@@ -429,7 +488,8 @@
         <EditText
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="17sp"
+            android:textSize="14sp"
+            android:textColor="@color/black"
             android:background="@null"/>
     </LinearLayout>
 
@@ -460,7 +520,9 @@
             <EditText
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textSize="17sp"
+                android:textSize="14sp"
+                android:textColor="@color/black"
+                android:inputType="textPassword"
                 android:background="@null"/>
         </LinearLayout>
 
@@ -524,8 +586,8 @@
         android:gravity="center_vertical">
 
         <ImageView
-            android:layout_width="20dp"
-            android:layout_height="20dp"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
             android:layout_marginTop="1dp"
             android:layout_marginEnd="10dp"
             android:src="@drawable/white_checkmark_teal_rectangle_rounded"/>
@@ -534,7 +596,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="I agree to the Kinnect Terms and Privacy Policy."
-            android:textSize="14sp"
+            android:textSize="13sp"
             android:textColor="@color/wenge"/>
     </LinearLayout>
     <LinearLayout
