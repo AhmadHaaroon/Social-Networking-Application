@@ -28,7 +28,11 @@ public final class Profiles {
                 synchronized (LOCK) {
                     JSONObject result = Api.call("auth/" + endpoint + ".php", input, null);
                     String nextUid = result.getJSONObject("user").getString("uid");
-                    if (!LocalDb.get().containsOnly(nextUid)) LocalDb.get().revokeAndClear("");
+                    if (!LocalDb.get().containsOnly(nextUid)) {
+                        LocalDb.get().revokeAndClear("");
+                        MediaFiles.clear();
+                    }
+                    LocalDb.get().setOwner(nextUid);
                     LocalDb.get().accept(result.getJSONObject("user"));
                     WebSession.save(result);
                 }
@@ -42,9 +46,11 @@ public final class Profiles {
 
     public static void save(Context context, JSONObject profile, Runnable queued, Callback<Exception> failed) {
         Context app = context.getApplicationContext();
+        String token = WebSession.token();
         IO.execute(() -> {
             try {
                 synchronized (LOCK) {
+                    if (!token.equals(WebSession.token())) throw new IllegalStateException("Please log in again.");
                     String uid = WebSession.uid();
                     if (uid == null) throw new IllegalStateException("Your session expired. Please log in again.");
                     profile.put("actionId", UUID.randomUUID().toString());
@@ -70,6 +76,7 @@ public final class Profiles {
                     LocalDb.get().revokeAndClear(WebSession.token());
                     WebSession.clear();
                     UserCache.clear();
+                    MediaFiles.clear();
                 }
                 SyncWorker.retryNow(app);
                 MAIN.post(done);

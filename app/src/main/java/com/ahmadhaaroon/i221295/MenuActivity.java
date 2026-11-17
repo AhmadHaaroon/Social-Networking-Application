@@ -11,6 +11,7 @@ import com.ahmadhaaroon.i221295.ui.AvatarView;
 import com.ahmadhaaroon.i221295.util.AuthFlow;
 import com.ahmadhaaroon.i221295.util.Badges;
 import com.ahmadhaaroon.i221295.util.Db;
+import com.ahmadhaaroon.i221295.util.LocalDb;
 import com.ahmadhaaroon.i221295.util.Subs;
 import com.ahmadhaaroon.i221295.util.UserCache;
 
@@ -18,6 +19,7 @@ import com.ahmadhaaroon.i221295.util.UserCache;
 public class MenuActivity extends AppCompatActivity {
 
     private final Subs subs = new Subs();
+    private final Runnable changed = this::refreshProfile;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -26,11 +28,6 @@ public class MenuActivity extends AppCompatActivity {
         NavHelper.setup(this, NavHelper.MENU, "Menu");
         findViewById(R.id.msgBadge).setVisibility(android.view.View.GONE);
         findViewById(R.id.notifBadge).setVisibility(android.view.View.GONE);
-
-        String me = Db.uid();
-        ((AvatarView) findViewById(R.id.avJW)).bind(me);
-        TextView name = findViewById(R.id.menuName);
-        UserCache.get(me, u -> name.setText(u.displayName()));
 
         findViewById(R.id.cardProfile).setOnClickListener(v -> NavHelper.open(this, MyProfileActivity.class));
         findViewById(R.id.cardMarket).setOnClickListener(v -> NavHelper.go(this, MarketplaceActivity.class));
@@ -41,6 +38,26 @@ public class MenuActivity extends AppCompatActivity {
                 .setPositiveButton("Log out", (d, w) -> AuthFlow.logout(this))
                 .setNegativeButton("Cancel", null)
                 .show());
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        LocalDb.observe(changed);
+        refreshProfile();
+    }
+
+    @Override
+    protected void onPause() {
+        LocalDb.removeObserver(changed);
+        super.onPause();
+    }
+
+    private void refreshProfile() {
+        String me = Db.uid();
+        ((AvatarView) findViewById(R.id.avJW)).bind(me);
+        TextView name = findViewById(R.id.menuName);
+        UserCache.get(me, u -> name.setText(u.displayName()));
     }
 
     @Override

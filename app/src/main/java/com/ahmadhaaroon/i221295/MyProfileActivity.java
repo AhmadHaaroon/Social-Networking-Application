@@ -10,25 +10,24 @@ import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.ValueEventListener;
 import com.ahmadhaaroon.i221295.adapters.PostAdapter;
 import com.ahmadhaaroon.i221295.models.User;
 import com.ahmadhaaroon.i221295.ui.AvatarView;
 import com.ahmadhaaroon.i221295.util.AuthFlow;
 import com.ahmadhaaroon.i221295.util.Db;
+import com.ahmadhaaroon.i221295.util.People;
+import com.ahmadhaaroon.i221295.util.Profiles;
+import com.ahmadhaaroon.i221295.util.UserJson;
+import com.ahmadhaaroon.i221295.util.Connection;
 import com.ahmadhaaroon.i221295.util.Images;
 import com.ahmadhaaroon.i221295.util.MediaUpload;
 import com.ahmadhaaroon.i221295.util.PostActions;
-import com.ahmadhaaroon.i221295.util.ProfileData;
 import com.ahmadhaaroon.i221295.util.Subs;
 import com.ahmadhaaroon.i221295.util.TimeFmt;
 import com.ahmadhaaroon.i221295.util.UserCache;
@@ -61,8 +60,8 @@ public class MyProfileActivity extends AppCompatActivity {
 
         NavHelper.click(this, R.id.backarrow, this::finish);
         NavHelper.click(this, R.id.btn_search, () -> NavHelper.open(this, SearchActivity.class));
-        NavHelper.click(this, R.id.btn_cover_camera, () -> NavHelper.pendingFeature(this));
-        NavHelper.click(this, R.id.btn_avatar_camera, () -> NavHelper.pendingFeature(this));
+        NavHelper.click(this, R.id.btn_cover_camera, () -> pickCover.launch(PictureSendActivity.pick(this, false, false)));
+        NavHelper.click(this, R.id.btn_avatar_camera, () -> pickAvatar.launch(PictureSendActivity.pick(this, false, false)));
         NavHelper.click(this, R.id.btn_add_story, () -> NavHelper.pendingFeature(this));
         NavHelper.click(this, R.id.btn_edit_profile, () -> startActivity(new Intent(this, EditProfileActivity.class)));
         NavHelper.click(this, R.id.find_friends, () -> NavHelper.open(this, FriendsActivity.class));
@@ -88,6 +87,7 @@ public class MyProfileActivity extends AppCompatActivity {
         super.onResume();
         LocalDb.observe(changed);
         refreshLocalProfile();
+        Profiles.refresh(this);
     }
 
     @Override
@@ -103,6 +103,7 @@ public class MyProfileActivity extends AppCompatActivity {
             return;
         }
         bind(user);
+        bindFriends(People.friends(Db.uid()));
     }
 
     private void bind(User u) {
@@ -157,13 +158,21 @@ public class MyProfileActivity extends AppCompatActivity {
 
     private void upload(List<Uri> uris, String folder, String field) {
         if (uris.isEmpty()) return;
-        Toast.makeText(this, "Uploading…", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Preparing photo…", Toast.LENGTH_SHORT).show();
         MediaUpload.upload(this, uris.get(0), folder, new MediaUpload.Listener() {
             @Override
             public void onSuccess(String url) {
-                User me = UserCache.peek(Db.uid());
-                String old = me == null ? null : ("photoUrl".equals(field) ? me.photoUrl : me.coverUrl);
-                Db.user(Db.uid()).child(field).setValue(url).addOnSuccessListener(v -> MediaUpload.delete(old));
+                User me = LocalDb.get().user(Db.uid());
+                if (me == null) return;
+                try {
+                    org.json.JSONObject profile = UserJson.write(me).put(field, url);
+                    Profiles.save(MyProfileActivity.this, profile, () -> {
+                        if (!Connection.internet(MyProfileActivity.this)) Toast.makeText(MyProfileActivity.this,
+                                "Saved on this device; syncing when reconnected", Toast.LENGTH_SHORT).show();
+                    }, e -> Toast.makeText(MyProfileActivity.this, e.getMessage(), Toast.LENGTH_LONG).show());
+                } catch (Exception e) {
+                    onError(e);
+                }
             }
 
             @Override

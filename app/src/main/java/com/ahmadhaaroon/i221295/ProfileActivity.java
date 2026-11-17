@@ -8,20 +8,19 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.ValueEventListener;
 import com.ahmadhaaroon.i221295.adapters.PostAdapter;
 import com.ahmadhaaroon.i221295.models.Post;
 import com.ahmadhaaroon.i221295.models.User;
 import com.ahmadhaaroon.i221295.ui.AvatarView;
 import com.ahmadhaaroon.i221295.util.Db;
+import com.ahmadhaaroon.i221295.util.LocalDb;
+import com.ahmadhaaroon.i221295.util.People;
+import com.ahmadhaaroon.i221295.util.Profiles;
 import com.ahmadhaaroon.i221295.util.Friends;
 import com.ahmadhaaroon.i221295.util.Images;
 import com.ahmadhaaroon.i221295.util.Mutuals;
@@ -71,7 +70,7 @@ public class ProfileActivity extends AppCompatActivity {
 
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
         findViewById(R.id.btnSearch).setOnClickListener(v -> startActivity(new Intent(this, SearchActivity.class)));
-        findViewById(R.id.btnMessage).setOnClickListener(v -> startActivity(ChatActivity.intent(this, uid)));
+        findViewById(R.id.btnMessage).setOnClickListener(v -> NavHelper.pendingFeature(this));
         findViewById(R.id.btnAdd).setOnClickListener(v -> onAddClicked());
         findViewById(R.id.btnMore).setOnClickListener(v -> showMore());
         findViewById(R.id.btnSeeAll).setOnClickListener(v -> {
@@ -88,43 +87,35 @@ public class ProfileActivity extends AppCompatActivity {
     }
 
     private void listen() {
-        subs.value(Db.user(uid), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                User u = s.getValue(User.class);
-                if (u == null) return;
-                u.uid = uid;
-                UserCache.put(u);
-                ((AvatarView) findViewById(R.id.avatar)).setUser(u);
-                ((TextView) findViewById(R.id.titleName)).setText(u.displayName());
-                ((TextView) findViewById(R.id.tvName)).setText(u.displayName());
-                setOptional(R.id.tvBio, u.bio, null);
-                setOptional(R.id.tvWork, u.work, R.id.rowWork);
-                setOptional(R.id.tvLives, u.location == null || u.location.isEmpty() ? null : "Lives in " + u.location, R.id.rowLives);
-                ((TextView) findViewById(R.id.tvJoined)).setText(TimeFmt.joined(u.createdAt));
-                Images.load(findViewById(R.id.cover), u.coverUrl);
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
-        ProfileData.friends(subs, uid, list -> {
-            friendCount = list.size();
-            Mutuals.list(uid, this::showMutuals);
-        });
-        subs.value(Db.closeFriends(Db.uid()).child(uid), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                closeFriend = s.exists();
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
+        Runnable changed = this::refreshProfile;
+        LocalDb.observe(changed);
+        subs.add(() -> LocalDb.removeObserver(changed));
+        refreshProfile();
         stateHandle = Friends.observe(uid, this::showState);
-        ProfileData.posts(subs, uid, this::showPosts);
+        showPosts(new ArrayList<>());
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        Profiles.refresh(this);
+    }
+
+    private void refreshProfile() {
+        User u = LocalDb.get().user(uid);
+        if (u == null) return;
+        ((AvatarView) findViewById(R.id.avatar)).setUser(u);
+        ((TextView) findViewById(R.id.titleName)).setText(u.displayName());
+        ((TextView) findViewById(R.id.tvName)).setText(u.displayName());
+        setOptional(R.id.tvBio, u.bio, null);
+        setOptional(R.id.tvWork, u.work, R.id.rowWork);
+        setOptional(R.id.tvLives, u.location == null || u.location.isEmpty() ? null : "Lives in " + u.location, R.id.rowLives);
+        ((TextView) findViewById(R.id.tvJoined)).setText(TimeFmt.joined(u.createdAt));
+        Images.load(findViewById(R.id.cover), u.coverUrl);
+        friendCount = People.friends(uid).size();
+        Mutuals.list(uid, this::showMutuals);
+        org.json.JSONObject relation = People.relation(uid);
+        closeFriend = relation != null && relation.optBoolean("close");
     }
 
     private void setOptional(int textId, String value, Integer rowId) {
@@ -167,7 +158,7 @@ public class ProfileActivity extends AppCompatActivity {
         TextView label = findViewById(R.id.tvAdd);
         ImageView icon = findViewById(R.id.icAdd);
         LinearLayout btn = findViewById(R.id.btnAdd);
-        label.setText(Friends.label(s));
+        label.setText(Friends.label(s) + (LocalDb.get().friendPending(uid) ? " · Pending" : ""));
         boolean primary = s == Friends.NONE || s == Friends.INCOMING;
         btn.setBackgroundResource(primary ? R.drawable.bg_teal12 : R.drawable.bg_cream12);
         int color = getColor(primary ? R.color.white : R.color.ink);
@@ -206,7 +197,7 @@ public class ProfileActivity extends AppCompatActivity {
             actions.add(() -> Friends.decline(uid));
         }
         items.add("Message");
-        actions.add(() -> startActivity(ChatActivity.intent(this, uid)));
+        actions.add(() -> NavHelper.pendingFeature(this));
         new AlertDialog.Builder(this)
                 .setItems(items.toArray(new String[0]), (d, w) -> actions.get(w).run())
                 .show();

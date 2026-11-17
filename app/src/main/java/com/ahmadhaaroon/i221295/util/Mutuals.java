@@ -1,15 +1,7 @@
 package com.ahmadhaaroon.i221295.util;
 
-import androidx.annotation.NonNull;
-
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.ValueEventListener;
-
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /** Mutual friends between the signed-in user and someone else. */
 public final class Mutuals {
@@ -27,32 +19,8 @@ public final class Mutuals {
             cb.onResult(new ArrayList<>());
             return;
         }
-        Db.friends(me).addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot mine) {
-                Set<String> myFriends = new HashSet<>();
-                for (DataSnapshot c : mine.getChildren()) myFriends.add(c.getKey());
-                Db.friends(other).addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(@NonNull DataSnapshot theirs) {
-                        List<String> mutual = new ArrayList<>();
-                        for (DataSnapshot c : theirs.getChildren()) {
-                            if (myFriends.contains(c.getKey())) mutual.add(c.getKey());
-                        }
-                        cb.onResult(mutual);
-                    }
-
-                    @Override
-                    public void onCancelled(@NonNull DatabaseError error) {
-                        cb.onResult(new ArrayList<>());
-                    }
-                });
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                cb.onResult(new ArrayList<>());
-            }
-        });
+        List<String> mutual = new ArrayList<>(People.friends(me));
+        mutual.retainAll(People.friends(other));
+        cb.onResult(mutual);
     }
 }

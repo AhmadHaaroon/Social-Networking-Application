@@ -12,13 +12,12 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.ValueEventListener;
 import com.ahmadhaaroon.i221295.adapters.PersonAdapter;
 import com.ahmadhaaroon.i221295.ui.AvatarView;
-import com.ahmadhaaroon.i221295.util.Badges;
 import com.ahmadhaaroon.i221295.util.Db;
+import com.ahmadhaaroon.i221295.util.LocalDb;
+import com.ahmadhaaroon.i221295.util.People;
+import com.ahmadhaaroon.i221295.util.Profiles;
 import com.ahmadhaaroon.i221295.util.Friends;
 import com.ahmadhaaroon.i221295.util.Mutuals;
 import com.ahmadhaaroon.i221295.util.PostActions;
@@ -56,7 +55,7 @@ public class FriendsActivity extends AppCompatActivity {
         setContentView(R.layout.friends_screen);
 
         NavHelper.click(this, R.id.btn_search, () -> startActivity(new Intent(this, SearchActivity.class)));
-        NavHelper.click(this, R.id.messageIcon, () -> startActivity(new Intent(this, ChatsActivity.class)));
+        NavHelper.click(this, R.id.messageIcon, () -> NavHelper.open(this, ChatsActivity.class));
         NavHelper.click(this, R.id.tab_home, () -> NavHelper.goHome(this));
         NavHelper.click(this, R.id.tab_shop, () -> NavHelper.go(this, MarketplaceActivity.class));
         NavHelper.click(this, R.id.bell_icon, () -> NavHelper.go(this, NotificationsActivity.class));
@@ -77,48 +76,44 @@ public class FriendsActivity extends AppCompatActivity {
         peopleList.setLayoutManager(new LinearLayoutManager(this));
         peopleList.setAdapter(people);
 
-        Badges.messages(subs, findViewById(R.id.msgBadge));
-        Badges.notifications(subs, findViewById(R.id.notifBadge));
+        findViewById(R.id.msgBadge).setVisibility(View.GONE);
+        findViewById(R.id.notifBadge).setVisibility(View.GONE);
         listen();
         showFriends(false);
     }
 
     private void listen() {
-        String me = Db.uid();
-        subs.value(Db.friendRequests(me).orderByValue(), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                requestUids.clear();
-                requestTimes.clear();
-                for (DataSnapshot c : s.getChildren()) {
-                    requestUids.add(0, c.getKey()); // newest first
-                    Long t = c.getValue(Long.class);
-                    requestTimes.put(c.getKey(), t == null ? 0 : t);
-                }
-                ((TextView) findViewById(R.id.requests_count)).setText(String.valueOf(requestUids.size()));
-                findViewById(R.id.noRequests).setVisibility(requestUids.isEmpty() ? View.VISIBLE : View.GONE);
-                findViewById(R.id.see_all_requests).setVisibility(requestUids.size() > COLLAPSED_REQUESTS ? View.VISIBLE : View.GONE);
-                requestAdapter.notifyDataSetChanged();
-                if (!showingFriends) loadSuggestions();
-            }
+        Runnable changed = this::refreshPeople;
+        LocalDb.observe(changed);
+        subs.add(() -> LocalDb.removeObserver(changed));
+        refreshPeople();
+    }
 
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
-        subs.value(Db.friends(me), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                friends.clear();
-                for (DataSnapshot c : s.getChildren()) friends.add(c.getKey());
-                if (showingFriends) showFriendList();
-                else loadSuggestions();
-            }
+    @Override
+    protected void onResume() {
+        super.onResume();
+        Profiles.refresh(this);
+    }
 
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
+    private void refreshPeople() {
+        requestUids.clear();
+        requestTimes.clear();
+        for (org.json.JSONObject row : LocalDb.get().relations()) {
+            if (!row.optString("a").equals(Db.uid()) && !row.optString("b").equals(Db.uid())) continue;
+            String other = row.optString("a").equals(Db.uid()) ? row.optString("b") : row.optString("a");
+            if (People.state(other) != Friends.INCOMING || requestUids.contains(other)) continue;
+            requestUids.add(other);
+            requestTimes.put(other, row.optLong("timestamp"));
+        }
+        requestUids.sort((a, b) -> Long.compare(requestTimes.get(b), requestTimes.get(a)));
+        ((TextView) findViewById(R.id.requests_count)).setText(String.valueOf(requestUids.size()));
+        findViewById(R.id.noRequests).setVisibility(requestUids.isEmpty() ? View.VISIBLE : View.GONE);
+        findViewById(R.id.see_all_requests).setVisibility(requestUids.size() > COLLAPSED_REQUESTS ? View.VISIBLE : View.GONE);
+        requestAdapter.notifyDataSetChanged();
+        friends.clear();
+        friends.addAll(People.friends(Db.uid()));
+        if (showingFriends) showFriendList();
+        else loadSuggestions();
     }
 
     private void showFriends(boolean friendsTab) {
@@ -150,50 +145,20 @@ public class FriendsActivity extends AppCompatActivity {
         Set<String> exclude = new HashSet<>(friends);
         exclude.add(me);
         exclude.addAll(requestUids);
-        Map<String, Integer> score = new HashMap<>();
-        int[] pending = {friends.size() + 1};
-        Runnable done = () -> {
-            if (--pending[0] > 0 || showingFriends) return;
-            List<String> list = new ArrayList<>(score.keySet());
-            list.sort((a, b) -> Integer.compare(score.get(b), score.get(a)));
-            if (list.size() > 30) list = new ArrayList<>(list.subList(0, 30));
-            people.setUsers(list);
-            TextView empty = findViewById(R.id.emptyPeople);
-            empty.setText(R.string.no_suggestions);
-            empty.setVisibility(list.isEmpty() ? View.VISIBLE : View.GONE);
-        };
-        for (String f : friends) {
-            Db.friends(f).addListenerForSingleValueEvent(new ValueEventListener() {
-                @Override
-                public void onDataChange(@NonNull DataSnapshot s) {
-                    for (DataSnapshot c : s.getChildren()) {
-                        String k = c.getKey();
-                        if (!exclude.contains(k)) score.put(k, (score.containsKey(k) ? score.get(k) : 0) + 100);
-                    }
-                    done.run();
-                }
+        List<String> list = People.cachedSearch("", "everyone");
+        list.removeAll(exclude);
+        list.sort((a, b) -> Integer.compare(mutualCount(b), mutualCount(a)));
+        if (list.size() > 30) list = new ArrayList<>(list.subList(0, 30));
+        people.setUsers(list);
+        TextView empty = findViewById(R.id.emptyPeople);
+        empty.setText(R.string.no_suggestions);
+        empty.setVisibility(list.isEmpty() ? View.VISIBLE : View.GONE);
+    }
 
-                @Override
-                public void onCancelled(@NonNull DatabaseError error) {
-                    done.run();
-                }
-            });
-        }
-        Db.users().orderByChild("createdAt").limitToLast(60).addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                for (DataSnapshot c : s.getChildren()) {
-                    String k = c.getKey();
-                    if (!exclude.contains(k) && !score.containsKey(k)) score.put(k, 0);
-                }
-                done.run();
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                done.run();
-            }
-        });
+    private int mutualCount(String uid) {
+        List<String> mutual = People.friends(uid);
+        mutual.retainAll(friends);
+        return mutual.size();
     }
 
     @Override

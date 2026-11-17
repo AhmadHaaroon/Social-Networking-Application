@@ -14,6 +14,7 @@ import com.ahmadhaaroon.i221295.models.User;
 import com.ahmadhaaroon.i221295.ui.AvatarView;
 import com.ahmadhaaroon.i221295.util.Callback;
 import com.ahmadhaaroon.i221295.util.Friends;
+import com.ahmadhaaroon.i221295.util.LocalDb;
 import com.ahmadhaaroon.i221295.util.Mutuals;
 import com.ahmadhaaroon.i221295.util.PostActions;
 import com.ahmadhaaroon.i221295.util.UserCache;
@@ -109,7 +110,7 @@ public class PersonAdapter extends RecyclerView.Adapter<PersonAdapter.VH> {
         private void showState(int s) {
             add.setVisibility(s == Friends.NONE ? View.VISIBLE : View.GONE);
             state.setVisibility(s == Friends.NONE || s == Friends.SELF ? View.GONE : View.VISIBLE);
-            state.setText(Friends.label(s));
+            state.setText(Friends.label(s) + (LocalDb.get().friendPending(uid) ? " · Pending" : ""));
             boolean confirm = s == Friends.INCOMING;
             state.setBackgroundResource(confirm ? R.drawable.seagreen_button_10 : R.drawable.beige_button_10);
             state.setTextColor(activity.getColor(confirm ? R.color.white : R.color.black));

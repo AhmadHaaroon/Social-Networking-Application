@@ -10,6 +10,9 @@ import androidx.annotation.Nullable;
 
 import com.google.firebase.FirebaseApp;
 import com.ahmadhaaroon.i221295.util.Api;
+import com.ahmadhaaroon.i221295.util.People;
+import com.ahmadhaaroon.i221295.util.MediaFiles;
+import com.ahmadhaaroon.i221295.ui.ScreenSync;
 import com.ahmadhaaroon.i221295.util.LocalDb;
 import com.ahmadhaaroon.i221295.util.WebSession;
 import com.ahmadhaaroon.i221295.util.SyncWorker;
@@ -28,18 +31,22 @@ public class KinnectApp extends Application {
         WebSession.init(this);
         LocalDb.init(this);
         Api.init(this);
+        People.init(this);
+        MediaFiles.init(this);
         PushNotifier.createChannels(this);
         SyncWorker.schedule(this);
 
         registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
             @Override
             public void onActivityStarted(@NonNull Activity activity) {
+                ScreenSync.start(activity);
                 startedActivities++;
                 if (startedActivities == 1) onForegroundChanged(true);
             }
 
             @Override
             public void onActivityStopped(@NonNull Activity activity) {
+                ScreenSync.stop(activity);
                 startedActivities = Math.max(0, startedActivities - 1);
                 if (startedActivities == 0) onForegroundChanged(false);
             }
@@ -62,6 +69,7 @@ public class KinnectApp extends Application {
 
             @Override
             public void onActivityDestroyed(@NonNull Activity a) {
+                ScreenSync.destroy(a);
             }
         });
     }

@@ -12,7 +12,7 @@ import com.ahmadhaaroon.i221295.R;
 
 /**
  * Glide wrappers that skip loads for activities that are already finishing. Media references
- * stored in the Realtime Database ("rtdb:...") are resolved to a cached file first; for videos
+ * from PHP ("media:...") are resolved to a cached file first; for videos
  * Glide shows the first frame.
  */
 public final class Images {
@@ -59,6 +59,15 @@ public final class Images {
             return;
         }
         v.setTag(R.id.media_ref, ref);
+        if (MediaFiles.isRef(ref)) {
+            Glide.with(v).clear(v);
+            MediaFiles.resolve(ref, file -> {
+                if (file != null && ref.equals(v.getTag(R.id.media_ref)) && alive(v.getContext())) {
+                    apply(Glide.with(v), v, file, mode);
+                }
+            });
+            return;
+        }
         if (!MediaCache.isRef(ref)) {
             apply(Glide.with(v), v, ref, mode);
             return;

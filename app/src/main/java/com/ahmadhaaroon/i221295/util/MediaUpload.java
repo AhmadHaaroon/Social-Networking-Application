@@ -10,9 +10,6 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.OpenableColumns;
-import android.util.Base64;
-
-import com.google.firebase.database.DatabaseReference;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -22,15 +19,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/**
- * Stores photos and videos in the Realtime Database (the free Spark plan has no Cloud Storage).
- *
- * A file is Base64-encoded and split into chunks of at most 512 KB, written one by one to
- * mediaChunks/{ownerUid}/{mediaId}/{0..n}. The value saved in posts, stories, chats and profiles
- * is a reference string "rtdb:{image|video}:{ownerUid}:{mediaId}"; {@link MediaCache} turns it
- * back into a local file. Photos are resized to at most 1280 px JPEG first and videos are
- * limited to 10 MB to keep inside the free 1 GB database quota.
- */
+/** Prepares durable local media; the pending action uploads it through PHP during sync. */
 public final class MediaUpload {
 
     public interface Listener {
@@ -41,7 +30,6 @@ public final class MediaUpload {
 
     public static final long MAX_VIDEO_BYTES = 10L * 1024 * 1024;
     private static final int MAX_SIDE = 1280;
-    private static final int CHUNK_CHARS = 512 * 1024;
     private static final ExecutorService IO = Executors.newSingleThreadExecutor();
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
 
@@ -62,34 +50,16 @@ public final class MediaUpload {
         IO.execute(() -> {
             try {
                 byte[] bytes = video ? readVideo(app, uri) : compress(app, uri);
-                String base64 = Base64.encodeToString(bytes, Base64.NO_WRAP);
-                List<String> chunks = new ArrayList<>();
-                for (int i = 0; i < base64.length(); i += CHUNK_CHARS) {
-                    chunks.add(base64.substring(i, Math.min(base64.length(), i + CHUNK_CHARS)));
+                String ref;
+                synchronized (Profiles.LOCK) {
+                    if (owner == null || !owner.equals(Db.uid())) throw new IOException("Please log in again.");
+                    ref = MediaFiles.store(bytes);
                 }
-                DatabaseReference node = Db.root().child("mediaChunks").child(owner).push();
-                String ref = "rtdb:" + (video ? "video" : "image") + ":" + owner + ":" + node.getKey();
-                // Keep a local copy so the uploader never downloads their own media again.
-                MediaCache.store(app, ref, bytes);
-                MAIN.post(() -> writeChunk(node, chunks, 0, ref, l));
+                MAIN.post(() -> l.onSuccess(ref));
             } catch (Exception e) {
                 MAIN.post(() -> l.onError(e));
             }
         });
-    }
-
-    /** Chunks are written one at a time so no single write gets near the SDK's 16 MB limit. */
-    private static void writeChunk(DatabaseReference node, List<String> chunks, int i, String ref, Listener l) {
-        if (i >= chunks.size()) {
-            l.onSuccess(ref);
-            return;
-        }
-        node.child(String.valueOf(i)).setValue(chunks.get(i))
-                .addOnSuccessListener(v -> writeChunk(node, chunks, i + 1, ref, l))
-                .addOnFailureListener(e -> {
-                    node.removeValue();
-                    l.onError(e);
-                });
     }
 
     /** Uploads the files one after another and returns their references in the same order. */
@@ -118,11 +88,8 @@ public final class MediaUpload {
         });
     }
 
-    /** Frees the database space of a file this user uploaded (deleted post, expired story, old avatar). */
     public static void delete(String ref) {
-        String[] parts = MediaCache.parse(ref);
-        if (parts == null || !parts[1].equals(Db.uid())) return;
-        Db.root().child("mediaChunks").child(parts[1]).child(parts[2]).removeValue();
+        // The server owns deletion once no saved content references the uploaded file.
     }
 
     private static byte[] readVideo(Context c, Uri uri) throws IOException {

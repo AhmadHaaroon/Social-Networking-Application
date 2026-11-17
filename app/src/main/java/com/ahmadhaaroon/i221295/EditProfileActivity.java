@@ -22,8 +22,9 @@ import com.ahmadhaaroon.i221295.ui.AvatarView;
 import com.ahmadhaaroon.i221295.util.Db;
 import com.ahmadhaaroon.i221295.util.Images;
 import com.ahmadhaaroon.i221295.util.Session;
-import com.ahmadhaaroon.i221295.util.UserCache;
 import com.ahmadhaaroon.i221295.util.LocalDb;
+import com.ahmadhaaroon.i221295.util.MediaUpload;
+import com.ahmadhaaroon.i221295.util.Connection;
 import com.ahmadhaaroon.i221295.util.Profiles;
 import com.ahmadhaaroon.i221295.util.AuthFlow;
 
@@ -102,10 +103,10 @@ public class EditProfileActivity extends AppCompatActivity {
 
         NavHelper.click(this, R.id.btn_cancel, this::finish);
         NavHelper.click(this, R.id.btn_save, this::save);
-        NavHelper.click(this, R.id.btn_edit_picture, () -> NavHelper.pendingFeature(this));
-        NavHelper.click(this, R.id.avatar, () -> NavHelper.pendingFeature(this));
-        NavHelper.click(this, R.id.btn_edit_cover, () -> NavHelper.pendingFeature(this));
-        NavHelper.click(this, R.id.btn_cover_camera, () -> NavHelper.pendingFeature(this));
+        NavHelper.click(this, R.id.btn_edit_picture, () -> pickAvatar.launch(PictureSendActivity.pick(this, false, false)));
+        NavHelper.click(this, R.id.avatar, () -> pickAvatar.launch(PictureSendActivity.pick(this, false, false)));
+        NavHelper.click(this, R.id.btn_edit_cover, () -> pickCover.launch(PictureSendActivity.pick(this, false, false)));
+        NavHelper.click(this, R.id.btn_cover_camera, () -> pickCover.launch(PictureSendActivity.pick(this, false, false)));
         NavHelper.click(this, R.id.field_gender, this::pickGender);
 
         load();
@@ -164,10 +165,10 @@ public class EditProfileActivity extends AppCompatActivity {
             AuthFlow.afterSignIn(this);
             return;
         }
-        String status = LocalDb.get().status(Db.uid());
+        String status = LocalDb.get().profileStatus(Db.uid());
         syncStatus.setText(status.isEmpty() ? "" : status + "\nTap to retry or restore your attempted changes.");
         syncStatus.setVisibility(status.isEmpty() ? View.GONE : View.VISIBLE);
-        findViewById(R.id.btn_save).setEnabled(!status.startsWith("Pending"));
+        findViewById(R.id.btn_save).setEnabled(progress.getVisibility() != View.VISIBLE);
         User saved = LocalDb.get().user(Db.uid());
         if (saved != null && status.isEmpty()) Session.saveRecentLogin(this, saved);
         if (setupMode && saved != null && saved.profileComplete && status.isEmpty()) {
@@ -188,6 +189,12 @@ public class EditProfileActivity extends AppCompatActivity {
                 etSchool.setText(p.optString("school"));
                 etLocation.setText(p.optString("location"));
                 tvGender.setText(p.optString("gender"));
+                current.photoUrl = p.optString("photoUrl", current.photoUrl);
+                current.coverUrl = p.optString("coverUrl", current.coverUrl);
+                newAvatar = null;
+                newCover = null;
+                avatar.setUser(current);
+                Images.load(cover, current.coverUrl);
             } else {
                 Profiles.refresh(this);
             }
@@ -239,16 +246,51 @@ public class EditProfileActivity extends AppCompatActivity {
             profile.put("school", etSchool.getText().toString().trim());
             profile.put("location", etLocation.getText().toString().trim());
             profile.put("gender", tvGender.getText().toString());
-            Profiles.save(this, profile, () -> {
+            prepareImages(profile, () -> Profiles.save(this, profile, () -> {
                 progress.setVisibility(View.GONE);
                 showSyncStatus();
                 if (!setupMode) {
-                    Toast.makeText(this, "Saved on this device; syncing when connected", Toast.LENGTH_SHORT).show();
+                    if (!Connection.internet(this)) {
+                        Toast.makeText(this, "Saved on this device; syncing when reconnected", Toast.LENGTH_SHORT).show();
+                    }
+                    finish();
                 }
-            }, this::failed);
+            }, this::failed));
         } catch (Exception e) {
             failed(e);
         }
+    }
+
+    private void prepareImages(JSONObject profile, Runnable done) {
+        if (newAvatar == null && newCover == null) {
+            try {
+                profile.put("photoUrl", current.photoUrl);
+                profile.put("coverUrl", current.coverUrl);
+                done.run();
+            } catch (Exception e) {
+                failed(e);
+            }
+            return;
+        }
+        boolean isAvatar = newAvatar != null;
+        MediaUpload.upload(this, isAvatar ? newAvatar : newCover, isAvatar ? "avatars" : "covers", new MediaUpload.Listener() {
+            @Override
+            public void onSuccess(String ref) {
+                if (isAvatar) {
+                    current.photoUrl = ref;
+                    newAvatar = null;
+                } else {
+                    current.coverUrl = ref;
+                    newCover = null;
+                }
+                prepareImages(profile, done);
+            }
+
+            @Override
+            public void onError(Exception e) {
+                failed(e);
+            }
+        });
     }
 
     private void failed(Exception e) {

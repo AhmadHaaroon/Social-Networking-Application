@@ -19,6 +19,17 @@ $parts = preg_split('/\s+/', $name, 2);
 $profile['firstName'] = $parts[0];
 $profile['lastName'] = $parts[1] ?? '';
 $profile['bio'] = $bio;
+foreach (['photoUrl', 'coverUrl'] as $key) {
+    if (!array_key_exists($key, $d)) continue;
+    $ref = field($d, $key, 42);
+    if ($ref !== '') {
+        if (!preg_match('/^media:([a-f0-9-]{36})$/', $ref, $m)) fail('Invalid profile image.');
+        $q = db()->prepare('SELECT id FROM media WHERE id = ? AND owner_id = ?');
+        $q->execute([$m[1], $user['id']]);
+        if (!$q->fetch()) fail('Upload your image before saving the profile.', 409);
+    }
+    $profile[$key] = $ref;
+}
 $requestHash = hash('sha256', json_encode([$username, $profile]));
 $db = db();
 $db->beginTransaction();

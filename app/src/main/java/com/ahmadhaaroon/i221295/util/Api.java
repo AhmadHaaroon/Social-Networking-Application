@@ -31,6 +31,27 @@ public final class Api {
         queue = Volley.newRequestQueue(context.getApplicationContext());
     }
 
+    public static void add(Request<?> request) {
+        queue.add(request);
+    }
+
+    public static Failure failure(Throwable cause) {
+        int status = 0;
+        String message = "Can't reach Kinnect. Check your connection and XAMPP.";
+        if (cause instanceof VolleyError) {
+            VolleyError e = (VolleyError) cause;
+            if (e.networkResponse != null) {
+                status = e.networkResponse.statusCode;
+                message = "The server could not complete the request (" + status + ").";
+                try {
+                    message = new JSONObject(new String(e.networkResponse.data, StandardCharsets.UTF_8)).optString("error", message);
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        return new Failure(message, status);
+    }
+
     public static final class Failure extends Exception {
         public final int status;
 

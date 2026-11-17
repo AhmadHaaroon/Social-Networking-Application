@@ -8,9 +8,7 @@ import com.google.firebase.database.ValueEventListener;
 import com.ahmadhaaroon.i221295.models.Post;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /** Listeners shared by both profile screens. */
 public final class ProfileData {
@@ -42,27 +40,15 @@ public final class ProfileData {
 
     /** Friend uids of {@code uid}, most recently added first. */
     public static void friends(Subs subs, String uid, Callback<List<String>> cb) {
-        subs.value(Db.friends(uid).orderByValue(), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                List<String> list = new ArrayList<>();
-                for (DataSnapshot c : s.getChildren()) list.add(0, c.getKey());
-                cb.onResult(list);
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
+        Runnable changed = () -> cb.onResult(People.friends(uid));
+        LocalDb.observe(changed);
+        subs.add(() -> LocalDb.removeObserver(changed));
+        changed.run();
     }
 
-    /** Adds or removes someone from my Close friends list (who can see close-friends stories). */
+    /** Adds or removes someone from my Close friends list. */
     public static void setCloseFriend(String friendUid, boolean close) {
-        String me = Db.uid();
-        Map<String, Object> up = new HashMap<>();
-        up.put("closeFriends/" + me + "/" + friendUid, close ? true : null);
-        up.put("closeFriendOf/" + friendUid + "/" + me, close ? true : null);
-        Db.root().updateChildren(up);
+        People.action(friendUid, close ? "close" : "unclose");
     }
 
     public static List<String> allImages(List<Post> posts) {

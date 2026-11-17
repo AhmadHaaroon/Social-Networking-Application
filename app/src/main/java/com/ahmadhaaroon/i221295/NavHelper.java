@@ -39,7 +39,8 @@ NavHelper {
     public static boolean open(Activity a, Class<?> target) {
         if (target != StartSocialMediaActivity.class && target != MenuActivity.class
                 && target != MyProfileActivity.class && target != EditProfileActivity.class
-                && target != MarketplaceActivity.class) {
+                && target != MarketplaceActivity.class && target != FriendsActivity.class
+                && target != SearchActivity.class && target != ProfileActivity.class) {
             pendingFeature(a);
             return false;
         }

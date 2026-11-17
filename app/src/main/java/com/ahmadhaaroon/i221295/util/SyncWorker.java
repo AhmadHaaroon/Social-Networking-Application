@@ -45,6 +45,7 @@ public class SyncWorker extends Worker {
     @Override
     public Result doWork() {
         synchronized (RUN_LOCK) {
+            SyncStatus.begin();
             String token = "";
             try {
                 for (String[] row : LocalDb.get().revocations()) {
@@ -67,13 +68,20 @@ public class SyncWorker extends Worker {
                     if (action == null) break;
                     String id = action.getString("actionId");
                     try {
-                        JSONObject response = Api.call("profile/update.php", action, token);
+                        boolean friendAction = "friends.action".equals(action.optString("operation"));
+                        if (!friendAction) MediaFiles.uploadProfile(action, token);
+                        JSONObject response = Api.call(friendAction ? "friends/action.php" : "profile/update.php", action, token);
+                        if (friendAction) response = Api.call("social/state.php", null, token);
                         synchronized (Profiles.LOCK) {
                             if (!token.equals(WebSession.token())) return Result.success();
-                            LocalDb.get().complete(id, response.getJSONObject("user"));
+                            if (friendAction) LocalDb.get().completeFriend(id, response);
+                            else LocalDb.get().complete(id, response.getJSONObject("user"));
                         }
                     } catch (Api.Failure e) {
-                        if (e.retryable()) return Result.retry();
+                        if (e.retryable()) {
+                            SyncStatus.error = e.getMessage();
+                            return Result.retry();
+                        }
                         synchronized (Profiles.LOCK) {
                             if (!token.equals(WebSession.token())) return Result.success();
                             if (e.status == 401) {
@@ -81,19 +89,21 @@ public class SyncWorker extends Worker {
                                 LocalDb.changed();
                                 return Result.failure();
                             }
-                            LocalDb.get().reject(id, uid, e.getMessage());
+                            if ("friends.action".equals(action.optString("operation"))) LocalDb.get().rejectFriend(id, e.getMessage());
+                            else LocalDb.get().reject(id, uid, e.getMessage());
                         }
                     }
                 }
                 if (isStopped()) return Result.retry();
-                JSONObject response = Api.call("profile/me.php", null, token);
+                JSONObject response = Api.call("social/state.php", null, token);
                 synchronized (Profiles.LOCK) {
                     if (!token.equals(WebSession.token())) return Result.success();
-                    LocalDb.get().accept(response.getJSONObject("user"));
+                    LocalDb.get().acceptSocial(response);
                     LocalDb.changed();
                 }
                 return Result.success();
             } catch (Api.Failure e) {
+                SyncStatus.error = e.getMessage();
                 synchronized (Profiles.LOCK) {
                     if (e.status == 401 && !token.isEmpty() && token.equals(WebSession.token())) {
                         WebSession.clear();
@@ -102,7 +112,10 @@ public class SyncWorker extends Worker {
                 }
                 return e.retryable() ? Result.retry() : Result.failure();
             } catch (Exception e) {
+                SyncStatus.error = "Could not finish updating. Your pending changes are saved.";
                 return Result.retry();
+            } finally {
+                SyncStatus.end();
             }
         }
     }

@@ -28,4 +28,8 @@ google-services.json
 
 # Local PHP database credentials
 /backend/config.php
-/backend/uploads/
+/backend/uploads/*
+!/backend/uploads/.htaccess
+
+# Backend test runner cache
+__pycache__/
