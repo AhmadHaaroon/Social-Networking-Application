@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white"
+    android:orientation="vertical">
+
+    <RelativeLayout
+        android:id="@+id/RL1"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_marginTop="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:layout_marginStart="15dp"
+            android:layout_marginTop="6dp"
+            android:fontFamily="@font/logo_text_bold"
+            android:text="@string/friends"
+            android:textColor="@color/black"
+            android:textSize="25sp"/>
+
+        <ImageView
+        android:id="@+id/btn_search"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/search_icon"
+            android:background="@drawable/circle_icon"
+            android:layout_alignParentEnd="true"
+            android:layout_marginTop="10dp"
+            android:layout_marginEnd="50dp"
+            android:padding="5dp"
+            android:contentDescription="@string/search_icon"/>
+
+        <ImageView
+            android:id="@+id/messageIcon"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/message_circle_check"
+            android:background="@drawable/circle_icon"
+            android:layout_alignParentEnd="true"
+            android:layout_marginTop="10dp"
+            android:layout_marginEnd="5dp"
+            android:padding="5dp"
+            android:contentDescription="@string/message_icon"/>
+
+        <TextView
+            android:layout_width="11dp"
+            android:layout_height="10dp"
+            android:gravity="center"
+            android:background="@drawable/circle_text"
+            android:textColor="@color/white"
+            android:id="@+id/msgBadge"
+        android:visibility="gone"
+            android:textSize="8sp"
+            android:layout_alignStart="@id/messageIcon"
+            android:layout_marginStart="25dp"
+            android:layout_marginTop="10dp"
+            tools:ignore="SmallSp" />
+
+    </RelativeLayout>
+
+    <LinearLayout
+        android:id="@+id/LL1"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/one_sided_black_border">
+
+        <ImageView
+        android:id="@+id/tab_home"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:scaleType="center"
+            android:src="@drawable/home_black"
+            android:contentDescription="@string/home_icon"/>
+
+        <ImageView
+        android:id="@+id/tab_people"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:scaleType="center"
+            android:background="@drawable/one_sided_border_seagreen"
+            android:src="@drawable/people_seagreen"
+            android:contentDescription="@string/people_icon"/>
+
+        <ImageView
+        android:id="@+id/tab_shop"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:scaleType="center"
+            android:src="@drawable/shop"
+            android:contentDescription="@string/shop_icon"/>
+
+        <RelativeLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1">
+
+            <ImageView
+                android:id="@+id/bell_icon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true"
+                android:src="@drawable/notifications"
+                android:contentDescription="@string/notification_icon"/>
+
+            <TextView
+                android:layout_width="15dp"
+                android:layout_height="15dp"
+                android:layout_alignTop="@id/bell_icon"
+                android:layout_alignEnd="@id/bell_icon"
+                android:layout_marginTop="-4dp"
+                android:layout_marginEnd="-6dp"
+                android:gravity="center"
+                android:background="@drawable/circle_text"
+                android:id="@+id/notifBadge"
+                android:visibility="gone"
+                android:textColor="@color/white"
+                android:textStyle="bold"
+                android:textSize="9sp"
+                tools:ignore="SmallSp"/>
+
+        </RelativeLayout>
+
+        <ImageView
+        android:id="@+id/tab_more"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:scaleType="center"
+            android:src="@drawable/more_symbol"
+            android:contentDescription="@string/more_icon"/>
+
+    </LinearLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingBottom="24dp">
+
+    <RelativeLayout
+        android:id="@+id/chips_section"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp">
+
+        <TextView
+            android:id="@+id/suggestions_chip"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="18dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:background="@drawable/beige_chip"
+            android:text="@string/suggestions"
+            android:textColor="@color/black"
+            android:textStyle="bold"
+            android:textSize="14sp"/>
+
+        <TextView
+        android:id="@+id/your_friends_chip"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_toEndOf="@id/suggestions_chip"
+            android:layout_marginStart="10dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:background="@drawable/beige_chip"
+            android:text="@string/your_friends"
+            android:textColor="@color/black"
+            android:textStyle="bold"
+            android:textSize="14sp"/>
+
+    </RelativeLayout>
+
+
+            <LinearLayout
+                android:id="@+id/requestsSection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+    <RelativeLayout
+        android:id="@+id/requests_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp">
+
+        <TextView
+            android:id="@+id/requests_heading"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="18dp"
+            android:text="@string/friend_requests"
+            android:textColor="@color/black"
+            android:fontFamily="@font/logo_text_bold"
+            android:textSize="20sp"/>
+
+        <TextView
+        android:id="@+id/requests_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_toEndOf="@id/requests_heading"
+            android:layout_marginStart="6dp"
+            android:text="0"
+            android:textColor="@color/Red_Orange"
+            android:fontFamily="@font/logo_text_bold"
+            android:textSize="20sp"/>
+
+        <TextView
+        android:id="@+id/see_all_requests"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_marginEnd="18dp"
+            android:layout_marginTop="4dp"
+            android:text="@string/see_all"
+            android:textColor="@color/SeaGreen"
+            android:textStyle="bold"
+            android:textSize="15sp"/>
+
+    </RelativeLayout>
+
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/requestList"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:nestedScrollingEnabled="false"/>
+
+                <TextView
+                    android:id="@+id/noRequests"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="18dp"
+                    android:text="@string/no_requests"
+                    android:textColor="@color/gray"
+                    android:visibility="gone"/>
+
+                <View
+                    android:id="@+id/requests_divider"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginStart="18dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginEnd="18dp"
+                    android:background="@color/LightBeige"/>
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/listHeading"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="18dp"
+                android:layout_marginTop="16dp"
+                android:fontFamily="@font/logo_text_bold"
+                android:text="@string/people_you_may_know"
+                android:textColor="@color/black"
+                android:textSize="20sp"/>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/peopleList"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:nestedScrollingEnabled="false"/>
+
+            <TextView
+                android:id="@+id/emptyPeople"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="18dp"
+                android:text="@string/no_suggestions"
+                android:textColor="@color/gray"
+                android:visibility="gone"/>
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+</LinearLayout>
