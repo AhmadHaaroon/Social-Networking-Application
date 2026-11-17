@@ -3,6 +3,7 @@ package com.ahmadhaaroon.i221295;
 import android.app.Activity;
 import android.content.Intent;
 import android.view.View;
+import android.widget.Toast;
 
 public class
 NavHelper {
@@ -26,13 +27,28 @@ NavHelper {
             });
         }
 
-        click(a, R.id.btnMessenger, () -> a.startActivity(new Intent(a, ChatsActivity.class)));
-        click(a, R.id.btnSearch, () -> a.startActivity(new Intent(a, SearchActivity.class)));
+        click(a, R.id.btnMessenger, () -> open(a, ChatsActivity.class));
+        click(a, R.id.btnSearch, () -> open(a, SearchActivity.class));
     }
 
     public static void go(Activity a, Class<?> target) {
+        if (open(a, target)) a.finish();
+    }
+
+    /** Temporary boundary while each existing screen is migrated to PHP. */
+    public static boolean open(Activity a, Class<?> target) {
+        if (target != StartSocialMediaActivity.class && target != MenuActivity.class
+                && target != MyProfileActivity.class && target != EditProfileActivity.class
+                && target != MarketplaceActivity.class) {
+            pendingFeature(a);
+            return false;
+        }
         a.startActivity(new Intent(a, target));
-        a.finish();
+        return true;
+    }
+
+    public static void pendingFeature(Activity a) {
+        Toast.makeText(a, "This feature will be connected in a later migration stage.", Toast.LENGTH_SHORT).show();
     }
 
     public static void goHome(Activity a) {

@@ -16,8 +16,8 @@ public class MarketplaceActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_marketplace);
         NavHelper.setup(this, NavHelper.MARKET, "Marketplace");
-        Badges.messages(subs, findViewById(R.id.msgBadge));
-        Badges.notifications(subs, findViewById(R.id.notifBadge));
+        findViewById(R.id.msgBadge).setVisibility(android.view.View.GONE);
+        findViewById(R.id.notifBadge).setVisibility(android.view.View.GONE);
     }
 
     @Override

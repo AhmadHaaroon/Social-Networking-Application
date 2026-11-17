@@ -24,15 +24,15 @@ public class MenuActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_menu);
         NavHelper.setup(this, NavHelper.MENU, "Menu");
-        Badges.messages(subs, findViewById(R.id.msgBadge));
-        Badges.notifications(subs, findViewById(R.id.notifBadge));
+        findViewById(R.id.msgBadge).setVisibility(android.view.View.GONE);
+        findViewById(R.id.notifBadge).setVisibility(android.view.View.GONE);
 
         String me = Db.uid();
         ((AvatarView) findViewById(R.id.avJW)).bind(me);
         TextView name = findViewById(R.id.menuName);
         UserCache.get(me, u -> name.setText(u.displayName()));
 
-        findViewById(R.id.cardProfile).setOnClickListener(v -> startActivity(new Intent(this, MyProfileActivity.class)));
+        findViewById(R.id.cardProfile).setOnClickListener(v -> NavHelper.open(this, MyProfileActivity.class));
         findViewById(R.id.cardMarket).setOnClickListener(v -> NavHelper.go(this, MarketplaceActivity.class));
         findViewById(R.id.cardFriends).setOnClickListener(v -> NavHelper.go(this, FriendsActivity.class));
 

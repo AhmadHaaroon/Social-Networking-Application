@@ -11,13 +11,15 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.google.firebase.auth.FirebaseAuth;
+import com.ahmadhaaroon.i221295.util.Profiles;
+
+import org.json.JSONObject;
 import com.ahmadhaaroon.i221295.models.User;
 import com.ahmadhaaroon.i221295.ui.AvatarView;
 import com.ahmadhaaroon.i221295.util.AuthFlow;
 import com.ahmadhaaroon.i221295.util.Session;
 
-/** Log in (screen 02) with Firebase email/password auth and the Recent login card. */
+/** Log in (screen 02) with PHP email/password authentication and the Recent login card. */
 public class LoginActivity extends AppCompatActivity {
 
     private EditText etEmail;
@@ -84,12 +86,21 @@ public class LoginActivity extends AppCompatActivity {
             return;
         }
         progress.setVisibility(View.VISIBLE);
-        FirebaseAuth.getInstance().signInWithEmailAndPassword(email, password)
-                .addOnSuccessListener(r -> AuthFlow.afterSignIn(this))
-                .addOnFailureListener(e -> {
-                    progress.setVisibility(View.GONE);
-                    Toast.makeText(this, "Log in failed: " + e.getLocalizedMessage(), Toast.LENGTH_LONG).show();
-                });
+        findViewById(R.id.button).setEnabled(false);
+        try {
+            JSONObject input = new JSONObject();
+            input.put("email", email);
+            input.put("password", password);
+            Profiles.signIn(this, "login", input, () -> AuthFlow.afterSignIn(this), e -> {
+                progress.setVisibility(View.GONE);
+                findViewById(R.id.button).setEnabled(true);
+                Toast.makeText(this, e.getLocalizedMessage(), Toast.LENGTH_LONG).show();
+            });
+        } catch (Exception e) {
+            progress.setVisibility(View.GONE);
+            findViewById(R.id.button).setEnabled(true);
+            Toast.makeText(this, e.getLocalizedMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 
     private void resetPassword() {
@@ -98,8 +109,6 @@ public class LoginActivity extends AppCompatActivity {
             etEmail.setError("Enter your email first");
             return;
         }
-        FirebaseAuth.getInstance().sendPasswordResetEmail(email)
-                .addOnSuccessListener(v -> Toast.makeText(this, "Password reset email sent", Toast.LENGTH_LONG).show())
-                .addOnFailureListener(e -> Toast.makeText(this, e.getLocalizedMessage(), Toast.LENGTH_LONG).show());
+        Toast.makeText(this, "Password recovery will be available in a later migration stage.", Toast.LENGTH_LONG).show();
     }
 }

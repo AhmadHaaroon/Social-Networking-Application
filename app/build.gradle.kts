@@ -19,6 +19,7 @@ val localProps = Properties().apply {
     val f = rootProject.file("local.properties")
     if (f.exists()) f.inputStream().use { load(it) }
 }
+val apiBaseUrl = providers.gradleProperty("kinnectApiBaseUrl").orNull ?: localProps.getProperty("kinnect.apiBaseUrl", "http://10.0.2.2/kinnect/api/")
 val agoraAppId: String = localProps.getProperty("agora.appId", "")
 // Optional: firebase.emulatorHost=10.0.2.2 points debug builds at the local Firebase Emulator Suite.
 val emulatorHost: String = localProps.getProperty("firebase.emulatorHost", "")
@@ -38,6 +39,8 @@ android {
 
         buildConfigField("String", "AGORA_APP_ID", "\"$agoraAppId\"")
         buildConfigField("String", "FIREBASE_EMULATOR_HOST", "\"\"")
+
+        buildConfigField("String", "API_BASE_URL", "\"${apiBaseUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -63,6 +66,8 @@ android {
 }
 
 dependencies {
+    implementation(libs.volley)
+    implementation(libs.androidx.work)
     implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.constraintlayout)

@@ -9,17 +9,14 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.google.firebase.FirebaseApp;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.database.FirebaseDatabase;
-import com.ahmadhaaroon.i221295.services.CallWatcher;
+import com.ahmadhaaroon.i221295.util.Api;
+import com.ahmadhaaroon.i221295.util.LocalDb;
+import com.ahmadhaaroon.i221295.util.WebSession;
+import com.ahmadhaaroon.i221295.util.SyncWorker;
 import com.ahmadhaaroon.i221295.services.PushNotifier;
-import com.ahmadhaaroon.i221295.services.PushSender;
-import com.ahmadhaaroon.i221295.util.Db;
-import com.ahmadhaaroon.i221295.util.Presence;
 
 /**
- * Tracks whether any Kinnect screen is visible. That drives the online / offline status and
- * the in-app incoming-call listener.
+ * Initializes local sessions, SQLite and networking, and tracks foreground activity.
  */
 public class KinnectApp extends Application {
 
@@ -28,16 +25,11 @@ public class KinnectApp extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
-        if (!firebaseReady(this)) return;
-        String emulator = BuildConfig.FIREBASE_EMULATOR_HOST;
-        if (!emulator.isEmpty()) {
-            // Debug builds can run against the local Firebase Emulator Suite (see IMPLEMENTATION.md).
-            FirebaseAuth.getInstance().useEmulator(emulator, 9099);
-            FirebaseDatabase.getInstance().useEmulator(emulator, 9000);
-        }
-        FirebaseDatabase.getInstance().setPersistenceEnabled(true);
+        WebSession.init(this);
+        LocalDb.init(this);
+        Api.init(this);
         PushNotifier.createChannels(this);
-        PushSender.init(this);
+        SyncWorker.schedule(this);
 
         registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
             @Override
@@ -75,9 +67,7 @@ public class KinnectApp extends Application {
     }
 
     private void onForegroundChanged(boolean fg) {
-        if (Db.uid() == null) return;
-        Presence.setForeground(fg);
-        if (fg) CallWatcher.start(this);
+        if (fg) SyncWorker.schedule(this);
     }
 
     public static boolean isInForeground() {

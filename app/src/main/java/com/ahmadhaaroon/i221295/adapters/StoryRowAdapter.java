@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.ahmadhaaroon.i221295.CameraActivity;
 import com.ahmadhaaroon.i221295.R;
+import com.ahmadhaaroon.i221295.NavHelper;
 import com.ahmadhaaroon.i221295.StoryViewerActivity;
 import com.ahmadhaaroon.i221295.YourStoryActivity;
 import com.ahmadhaaroon.i221295.models.Story;
@@ -73,7 +74,7 @@ public class StoryRowAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         View v = h.itemView;
         if (position == 0) {
             ((AvatarView) v.findViewById(R.id.myAvatar)).bind(Db.uid());
-            v.setOnClickListener(x -> activity.startActivity(CameraActivity.forStory(activity)));
+            v.setOnClickListener(x -> NavHelper.pendingFeature(activity));
             return;
         }
         Group g = groups.get(position - 1);

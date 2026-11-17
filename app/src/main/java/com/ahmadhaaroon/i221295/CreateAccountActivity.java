@@ -17,19 +17,17 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
-import com.ahmadhaaroon.i221295.models.User;
 import com.ahmadhaaroon.i221295.util.AuthFlow;
-import com.ahmadhaaroon.i221295.util.Db;
+import com.ahmadhaaroon.i221295.util.Profiles;
+
+import org.json.JSONObject;
 
 import java.text.DateFormatSymbols;
 import java.util.Calendar;
 import java.util.Locale;
 
 /**
- * Sign up (screen 03). Creates the Firebase Auth account, then stores the profile in
- * users/{uid}. The password strength bar updates on every keystroke.
+ * Sign up (screen 03). Creates an account and session through the PHP service. The password strength bar updates on every keystroke.
  */
 public class CreateAccountActivity extends AppCompatActivity {
 
@@ -190,32 +188,25 @@ public class CreateAccountActivity extends AppCompatActivity {
         }
 
         progress.setVisibility(View.VISIBLE);
-        FirebaseAuth.getInstance().createUserWithEmailAndPassword(email, password)
-                .addOnSuccessListener(r -> saveProfile(r.getUser(), first, last, email))
-                .addOnFailureListener(e -> {
-                    progress.setVisibility(View.GONE);
-                    Toast.makeText(this, "Sign up failed: " + e.getLocalizedMessage(), Toast.LENGTH_LONG).show();
-                });
+        findViewById(R.id.button2).setEnabled(false);
+        try {
+            JSONObject input = new JSONObject();
+            input.put("firstName", first);
+            input.put("lastName", last);
+            input.put("email", email);
+            input.put("password", password);
+            input.put("gender", gender);
+            input.put("birthday", String.format(Locale.ROOT, "%04d-%02d-%02d", birthday.get(Calendar.YEAR),
+                    birthday.get(Calendar.MONTH) + 1, birthday.get(Calendar.DAY_OF_MONTH)));
+            Profiles.signIn(this, "signup", input, () -> AuthFlow.afterSignIn(this), this::failed);
+        } catch (Exception e) {
+            failed(e);
+        }
     }
 
-    private void saveProfile(FirebaseUser fu, String first, String last, String email) {
-        User u = new User();
-        u.uid = fu.getUid();
-        u.firstName = first;
-        u.lastName = last;
-        u.name = first + " " + last;
-        u.nameLower = u.name.toLowerCase(Locale.ROOT);
-        u.email = email;
-        u.gender = gender;
-        u.birthday = String.format(Locale.ROOT, "%04d-%02d-%02d", birthday.get(Calendar.YEAR),
-                birthday.get(Calendar.MONTH) + 1, birthday.get(Calendar.DAY_OF_MONTH));
-        u.createdAt = System.currentTimeMillis();
-        u.profileComplete = false; // the username + bio step (screen 16) finishes the profile
-        Db.user(u.uid).setValue(u)
-                .addOnSuccessListener(v -> AuthFlow.afterSignIn(this))
-                .addOnFailureListener(e -> {
-                    progress.setVisibility(View.GONE);
-                    Toast.makeText(this, "Could not save profile: " + e.getLocalizedMessage(), Toast.LENGTH_LONG).show();
-                });
+    private void failed(Exception e) {
+        progress.setVisibility(View.GONE);
+        findViewById(R.id.button2).setEnabled(true);
+        Toast.makeText(this, e.getLocalizedMessage(), Toast.LENGTH_LONG).show();
     }
 }

@@ -13,29 +13,24 @@ import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.bumptech.glide.Glide;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.MutableData;
-import com.google.firebase.database.Transaction;
-import com.google.firebase.database.ValueEventListener;
 import com.ahmadhaaroon.i221295.models.User;
 import com.ahmadhaaroon.i221295.ui.AvatarView;
 import com.ahmadhaaroon.i221295.util.Db;
 import com.ahmadhaaroon.i221295.util.Images;
-import com.ahmadhaaroon.i221295.util.MediaUpload;
 import com.ahmadhaaroon.i221295.util.Session;
 import com.ahmadhaaroon.i221295.util.UserCache;
+import com.ahmadhaaroon.i221295.util.LocalDb;
+import com.ahmadhaaroon.i221295.util.Profiles;
+import com.ahmadhaaroon.i221295.util.AuthFlow;
 
-import java.util.HashMap;
+import org.json.JSONObject;
+
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 /**
  * Edit profile (screen 16). Also used as the first-time profile setup step: new accounts must
@@ -50,6 +45,8 @@ public class EditProfileActivity extends AppCompatActivity {
     private AvatarView avatar;
     private ImageView cover;
     private View progress;
+    private TextView syncStatus;
+    private final Runnable changed = this::showSyncStatus;
 
     private boolean setupMode;
     private User current;
@@ -94,6 +91,8 @@ public class EditProfileActivity extends AppCompatActivity {
         avatar = findViewById(R.id.avatar);
         cover = findViewById(R.id.cover);
         progress = findViewById(R.id.progress);
+        syncStatus = findViewById(R.id.syncStatus);
+        syncStatus.setOnClickListener(v -> restoreAttempt());
 
         if (setupMode) {
             // First-time users cannot skip this step.
@@ -103,10 +102,10 @@ public class EditProfileActivity extends AppCompatActivity {
 
         NavHelper.click(this, R.id.btn_cancel, this::finish);
         NavHelper.click(this, R.id.btn_save, this::save);
-        NavHelper.click(this, R.id.btn_edit_picture, () -> pickAvatar.launch(PictureSendActivity.pick(this, false, false)));
-        NavHelper.click(this, R.id.avatar, () -> pickAvatar.launch(PictureSendActivity.pick(this, false, false)));
-        NavHelper.click(this, R.id.btn_edit_cover, () -> pickCover.launch(PictureSendActivity.pick(this, false, false)));
-        NavHelper.click(this, R.id.btn_cover_camera, () -> pickCover.launch(PictureSendActivity.pick(this, false, false)));
+        NavHelper.click(this, R.id.btn_edit_picture, () -> NavHelper.pendingFeature(this));
+        NavHelper.click(this, R.id.avatar, () -> NavHelper.pendingFeature(this));
+        NavHelper.click(this, R.id.btn_edit_cover, () -> NavHelper.pendingFeature(this));
+        NavHelper.click(this, R.id.btn_cover_camera, () -> NavHelper.pendingFeature(this));
         NavHelper.click(this, R.id.field_gender, this::pickGender);
 
         load();
@@ -127,31 +126,74 @@ public class EditProfileActivity extends AppCompatActivity {
             finish();
             return;
         }
-        Db.user(uid).addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                current = snapshot.getValue(User.class);
-                if (current == null) current = new User();
-                current.uid = uid;
-                etName.setText(current.name);
-                etUsername.setText(current.username);
-                etWebsite.setText(current.website);
-                etBio.setText(current.bio);
-                etPhone.setText(current.phone);
-                etWork.setText(current.work);
-                etSchool.setText(current.school);
-                etLocation.setText(current.location);
-                tvEmail.setText(current.email);
-                tvGender.setText(current.gender == null ? "Male" : current.gender);
-                if (newAvatar == null) avatar.setUser(current);
-                if (newCover == null) Images.load(cover, current.coverUrl);
-            }
+        current = LocalDb.get().user(uid);
+        if (current == null) {
+            AuthFlow.afterSignIn(this);
+            return;
+        }
+        etName.setText(current.name);
+        etUsername.setText(current.username);
+        etWebsite.setText(current.website);
+        etBio.setText(current.bio);
+        etPhone.setText(current.phone);
+        etWork.setText(current.work);
+        etSchool.setText(current.school);
+        etLocation.setText(current.location);
+        tvEmail.setText(current.email);
+        tvGender.setText(current.gender == null ? "Male" : current.gender);
+        avatar.setUser(current);
+        Images.load(cover, current.coverUrl);
+    }
 
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                Toast.makeText(EditProfileActivity.this, error.getMessage(), Toast.LENGTH_SHORT).show();
+    @Override
+    protected void onResume() {
+        super.onResume();
+        LocalDb.observe(changed);
+        showSyncStatus();
+        Profiles.refresh(this);
+    }
+
+    @Override
+    protected void onPause() {
+        LocalDb.removeObserver(changed);
+        super.onPause();
+    }
+
+    private void showSyncStatus() {
+        if (Db.uid() == null) {
+            AuthFlow.afterSignIn(this);
+            return;
+        }
+        String status = LocalDb.get().status(Db.uid());
+        syncStatus.setText(status.isEmpty() ? "" : status + "\nTap to retry or restore your attempted changes.");
+        syncStatus.setVisibility(status.isEmpty() ? View.GONE : View.VISIBLE);
+        findViewById(R.id.btn_save).setEnabled(!status.startsWith("Pending"));
+        User saved = LocalDb.get().user(Db.uid());
+        if (saved != null && status.isEmpty()) Session.saveRecentLogin(this, saved);
+        if (setupMode && saved != null && saved.profileComplete && status.isEmpty()) {
+            AuthFlow.afterSignIn(this);
+        }
+    }
+
+    private void restoreAttempt() {
+        try {
+            JSONObject p = LocalDb.get().failedProfile(Db.uid());
+            if (p != null) {
+                etName.setText(p.optString("name"));
+                etUsername.setText(p.optString("username"));
+                etBio.setText(p.optString("bio"));
+                etWebsite.setText(p.optString("website"));
+                etPhone.setText(p.optString("phone"));
+                etWork.setText(p.optString("work"));
+                etSchool.setText(p.optString("school"));
+                etLocation.setText(p.optString("location"));
+                tvGender.setText(p.optString("gender"));
+            } else {
+                Profiles.refresh(this);
             }
-        });
+        } catch (Exception e) {
+            failed(e);
+        }
     }
 
     private void pickGender() {
@@ -185,115 +227,33 @@ public class EditProfileActivity extends AppCompatActivity {
             return;
         }
         progress.setVisibility(View.VISIBLE);
-        claimUsername(username, () -> uploadImages(() -> writeProfile(name, username, bio)));
-    }
-
-    /** Claims usernames/{username} in a transaction so two people can never share one. */
-    private void claimUsername(String username, Runnable then) {
-        String uid = current.uid;
-        if (username.equals(current.username)) {
-            then.run();
-            return;
+        findViewById(R.id.btn_save).setEnabled(false);
+        try {
+            JSONObject profile = new JSONObject();
+            profile.put("name", name);
+            profile.put("username", username);
+            profile.put("bio", bio);
+            profile.put("website", etWebsite.getText().toString().trim());
+            profile.put("phone", etPhone.getText().toString().trim());
+            profile.put("work", etWork.getText().toString().trim());
+            profile.put("school", etSchool.getText().toString().trim());
+            profile.put("location", etLocation.getText().toString().trim());
+            profile.put("gender", tvGender.getText().toString());
+            Profiles.save(this, profile, () -> {
+                progress.setVisibility(View.GONE);
+                showSyncStatus();
+                if (!setupMode) {
+                    Toast.makeText(this, "Saved on this device; syncing when connected", Toast.LENGTH_SHORT).show();
+                }
+            }, this::failed);
+        } catch (Exception e) {
+            failed(e);
         }
-        Db.usernames().child(username).runTransaction(new Transaction.Handler() {
-            @NonNull
-            @Override
-            public Transaction.Result doTransaction(@NonNull MutableData data) {
-                String owner = data.getValue(String.class);
-                if (owner != null && !owner.equals(uid)) return Transaction.abort();
-                data.setValue(uid);
-                return Transaction.success(data);
-            }
-
-            @Override
-            public void onComplete(@Nullable DatabaseError error, boolean committed, @Nullable DataSnapshot snap) {
-                if (!committed) {
-                    progress.setVisibility(View.GONE);
-                    etUsername.setError("That username is taken");
-                    etUsername.requestFocus();
-                    return;
-                }
-                if (current.username != null && !current.username.isEmpty()) {
-                    Db.usernames().child(current.username).removeValue();
-                }
-                then.run();
-            }
-        });
-    }
-
-    private void uploadImages(Runnable then) {
-        if (newAvatar != null) {
-            MediaUpload.upload(this, newAvatar, "avatars", new MediaUpload.Listener() {
-                @Override
-                public void onSuccess(String url) {
-                    MediaUpload.delete(current.photoUrl);
-                    current.photoUrl = url;
-                    newAvatar = null;
-                    uploadImages(then);
-                }
-
-                @Override
-                public void onError(Exception e) {
-                    failed(e);
-                }
-            });
-        } else if (newCover != null) {
-            MediaUpload.upload(this, newCover, "covers", new MediaUpload.Listener() {
-                @Override
-                public void onSuccess(String url) {
-                    MediaUpload.delete(current.coverUrl);
-                    current.coverUrl = url;
-                    newCover = null;
-                    uploadImages(then);
-                }
-
-                @Override
-                public void onError(Exception e) {
-                    failed(e);
-                }
-            });
-        } else {
-            then.run();
-        }
-    }
-
-    private void writeProfile(String name, String username, String bio) {
-        String[] parts = name.split("\\s+", 2);
-        Map<String, Object> up = new HashMap<>();
-        up.put("name", name);
-        up.put("nameLower", name.toLowerCase(Locale.ROOT));
-        up.put("firstName", parts[0]);
-        up.put("lastName", parts.length > 1 ? parts[1] : "");
-        up.put("username", username);
-        up.put("usernameLower", username);
-        up.put("bio", bio);
-        up.put("website", etWebsite.getText().toString().trim());
-        up.put("phone", etPhone.getText().toString().trim());
-        up.put("work", etWork.getText().toString().trim());
-        up.put("school", etSchool.getText().toString().trim());
-        up.put("location", etLocation.getText().toString().trim());
-        up.put("gender", tvGender.getText().toString());
-        up.put("photoUrl", current.photoUrl);
-        up.put("coverUrl", current.coverUrl);
-        up.put("profileComplete", true);
-        Db.user(current.uid).updateChildren(up)
-                .addOnSuccessListener(v -> {
-                    current.name = name;
-                    current.username = username;
-                    Session.saveRecentLogin(this, current);
-                    UserCache.put(current);
-                    if (setupMode) {
-                        Intent home = new Intent(this, StartSocialMediaActivity.class);
-                        home.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                        startActivity(home);
-                    }
-                    finish();
-                })
-                .addOnFailureListener(this::failed);
     }
 
     private void failed(Exception e) {
         progress.setVisibility(View.GONE);
+        findViewById(R.id.btn_save).setEnabled(true);
         Toast.makeText(this, "Could not save: " + e.getLocalizedMessage(), Toast.LENGTH_LONG).show();
     }
 }

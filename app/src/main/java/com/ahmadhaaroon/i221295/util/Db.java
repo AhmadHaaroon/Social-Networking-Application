@@ -1,7 +1,5 @@
 package com.ahmadhaaroon.i221295.util;
 
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
@@ -36,8 +34,7 @@ public final class Db {
     }
 
     public static String uid() {
-        FirebaseUser u = FirebaseAuth.getInstance().getCurrentUser();
-        return u == null ? null : u.getUid();
+        return WebSession.uid();
     }
 
     public static DatabaseReference users() {

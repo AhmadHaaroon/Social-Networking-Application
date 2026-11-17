@@ -24,8 +24,7 @@ public class KinnectMessagingService extends FirebaseMessagingService {
 
     @Override
     public void onNewToken(@NonNull String token) {
-        String uid = Db.uid();
-        if (uid != null) Db.user(uid).child("fcmToken").setValue(token);
+        getSharedPreferences("kinnect_device", MODE_PRIVATE).edit().putString("fcm_token", token).apply();
     }
 
     @Override

@@ -32,6 +32,7 @@ import com.ahmadhaaroon.i221295.util.ProfileData;
 import com.ahmadhaaroon.i221295.util.Subs;
 import com.ahmadhaaroon.i221295.util.TimeFmt;
 import com.ahmadhaaroon.i221295.util.UserCache;
+import com.ahmadhaaroon.i221295.util.LocalDb;
 
 import java.util.List;
 
@@ -40,6 +41,7 @@ public class MyProfileActivity extends AppCompatActivity {
 
     private final Subs subs = new Subs();
     private PostAdapter postAdapter;
+    private final Runnable changed = this::refreshLocalProfile;
 
     private final ActivityResultLauncher<Intent> pickAvatar = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(), r -> upload(PictureSendActivity.results(r.getData()), "avatars", "photoUrl"));
@@ -58,13 +60,13 @@ public class MyProfileActivity extends AppCompatActivity {
         }
 
         NavHelper.click(this, R.id.backarrow, this::finish);
-        NavHelper.click(this, R.id.btn_search, () -> startActivity(new Intent(this, SearchActivity.class)));
-        NavHelper.click(this, R.id.btn_cover_camera, () -> pickCover.launch(PictureSendActivity.pick(this, false, false)));
-        NavHelper.click(this, R.id.btn_avatar_camera, () -> pickAvatar.launch(PictureSendActivity.pick(this, false, false)));
-        NavHelper.click(this, R.id.btn_add_story, () -> startActivity(CameraActivity.forStory(this)));
+        NavHelper.click(this, R.id.btn_search, () -> NavHelper.open(this, SearchActivity.class));
+        NavHelper.click(this, R.id.btn_cover_camera, () -> NavHelper.pendingFeature(this));
+        NavHelper.click(this, R.id.btn_avatar_camera, () -> NavHelper.pendingFeature(this));
+        NavHelper.click(this, R.id.btn_add_story, () -> NavHelper.pendingFeature(this));
         NavHelper.click(this, R.id.btn_edit_profile, () -> startActivity(new Intent(this, EditProfileActivity.class)));
-        NavHelper.click(this, R.id.find_friends, () -> startActivity(new Intent(this, FriendsActivity.class)));
-        NavHelper.click(this, R.id.friends_total, () -> startActivity(new Intent(this, FriendsActivity.class)));
+        NavHelper.click(this, R.id.find_friends, () -> NavHelper.open(this, FriendsActivity.class));
+        NavHelper.click(this, R.id.friends_total, () -> NavHelper.open(this, FriendsActivity.class));
         NavHelper.click(this, R.id.btn_more, () -> new AlertDialog.Builder(this)
                 .setItems(new String[]{"Edit profile", "Log out"}, (d, w) -> {
                     if (w == 0) startActivity(new Intent(this, EditProfileActivity.class));
@@ -77,25 +79,30 @@ public class MyProfileActivity extends AppCompatActivity {
         posts.setLayoutManager(new LinearLayoutManager(this));
         posts.setAdapter(postAdapter);
 
-        subs.value(Db.user(me), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                User u = s.getValue(User.class);
-                if (u == null) return;
-                u.uid = me;
-                UserCache.put(u);
-                bind(u);
-            }
+        bindFriends(java.util.Collections.emptyList());
+        findViewById(R.id.noPosts).setVisibility(View.VISIBLE);
+    }
 
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
-        ProfileData.friends(subs, me, this::bindFriends);
-        ProfileData.posts(subs, me, list -> {
-            postAdapter.setPosts(list);
-            findViewById(R.id.noPosts).setVisibility(list.isEmpty() ? View.VISIBLE : View.GONE);
-        });
+    @Override
+    protected void onResume() {
+        super.onResume();
+        LocalDb.observe(changed);
+        refreshLocalProfile();
+    }
+
+    @Override
+    protected void onPause() {
+        LocalDb.removeObserver(changed);
+        super.onPause();
+    }
+
+    private void refreshLocalProfile() {
+        User user = LocalDb.get().user(Db.uid());
+        if (user == null) {
+            AuthFlow.afterSignIn(this);
+            return;
+        }
+        bind(user);
     }
 
     private void bind(User u) {

@@ -29,6 +29,8 @@ import com.ahmadhaaroon.i221295.util.Db;
 import com.ahmadhaaroon.i221295.util.MediaUpload;
 import com.ahmadhaaroon.i221295.util.Subs;
 import com.ahmadhaaroon.i221295.util.UserCache;
+import com.ahmadhaaroon.i221295.util.LocalDb;
+import com.ahmadhaaroon.i221295.util.AuthFlow;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -52,6 +54,7 @@ public class StartSocialMediaActivity extends AppCompatActivity {
     private PostAdapter feedAdapter;
     private StoryRowAdapter storyAdapter;
     private View header;
+    private final Runnable changed = this::refreshLocalProfile;
 
     private final ActivityResultLauncher<String> notifPermission = registerForActivityResult(
             new ActivityResultContracts.RequestPermission(), granted -> {
@@ -81,9 +84,9 @@ public class StartSocialMediaActivity extends AppCompatActivity {
         feed.setLayoutManager(new LinearLayoutManager(this));
         feed.setAdapter(feedAdapter);
 
-        Badges.messages(subs, findViewById(R.id.msgBadge));
-        Badges.notifications(subs, findViewById(R.id.notifBadge));
-        listen(me);
+        findViewById(R.id.msgBadge).setVisibility(View.GONE);
+        findViewById(R.id.notifBadge).setVisibility(View.GONE);
+        // Feed and stories are connected in the next feature stage.
         askForNotificationPermission();
     }
 
@@ -101,7 +104,7 @@ public class StartSocialMediaActivity extends AppCompatActivity {
         h.findViewById(R.id.seagreenpfp).setOnClickListener(v -> open(MyProfileActivity.class));
         prompt.setOnClickListener(v -> open(CreatePostActivity.class));
         h.findViewById(R.id.btnImagePost).setOnClickListener(v ->
-                startActivity(CreatePostActivity.withPhotos(this)));
+                NavHelper.pendingFeature(this));
         updateEmptyState();
     }
 
@@ -224,7 +227,28 @@ public class StartSocialMediaActivity extends AppCompatActivity {
     }
 
     private void open(Class<?> target) {
-        startActivity(new Intent(this, target));
+        NavHelper.open(this, target);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        LocalDb.observe(changed);
+        refreshLocalProfile();
+    }
+
+    @Override
+    protected void onPause() {
+        LocalDb.removeObserver(changed);
+        super.onPause();
+    }
+
+    private void refreshLocalProfile() {
+        if (Db.uid() == null) {
+            AuthFlow.afterSignIn(this);
+            return;
+        }
+        if (header != null) bindHeader(header);
     }
 
     @Override

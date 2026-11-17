@@ -1,5 +1,7 @@
 # Kinnect – Assignment 2 (Firebase backend) – Implementation guide
 
+> Assignment 2 reference. Authentication and profile text now use the PHP services in `backend/`, with SQLite caching and queued synchronization. The remaining feature sections below describe the original implementation until each feature is migrated.
+
 This document explains how every requirement of *SMD Assignment 2 – Kinnect Backend with
 Firebase* was implemented, where the code lives, and how to set the project up.
 

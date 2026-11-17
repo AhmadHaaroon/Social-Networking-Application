@@ -25,3 +25,7 @@ google-services.json
 **/build/
 .idea/
 .kotlin/
+
+# Local PHP database credentials
+/backend/config.php
+/backend/uploads/
