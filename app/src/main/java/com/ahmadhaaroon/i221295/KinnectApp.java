@@ -32,9 +32,11 @@ public class KinnectApp extends Application {
         LocalDb.init(this);
         Api.init(this);
         People.init(this);
+        com.ahmadhaaroon.i221295.util.Content.init(this);
         MediaFiles.init(this);
         PushNotifier.createChannels(this);
         SyncWorker.schedule(this);
+        com.ahmadhaaroon.i221295.util.Connection.watch(this);
 
         registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
             @Override
@@ -57,6 +59,7 @@ public class KinnectApp extends Application {
 
             @Override
             public void onActivityResumed(@NonNull Activity a) {
+                com.ahmadhaaroon.i221295.ui.ScreenChrome.apply(a);
             }
 
             @Override

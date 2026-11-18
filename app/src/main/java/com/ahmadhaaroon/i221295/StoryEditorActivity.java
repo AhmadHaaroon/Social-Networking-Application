@@ -18,11 +18,12 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.bumptech.glide.Glide;
-import com.google.firebase.database.DatabaseReference;
 import com.ahmadhaaroon.i221295.models.Story;
 import com.ahmadhaaroon.i221295.ui.AvatarView;
 import com.ahmadhaaroon.i221295.ui.EmojiPicker;
 import com.ahmadhaaroon.i221295.util.Db;
+import com.ahmadhaaroon.i221295.util.Content;
+import com.ahmadhaaroon.i221295.util.ContentJson;
 import com.ahmadhaaroon.i221295.util.MediaUpload;
 
 /**
@@ -186,9 +187,8 @@ public class StoryEditorActivity extends AppCompatActivity {
 
     private void write(String audience, String url, String text) {
         String me = Db.uid();
-        DatabaseReference ref = Db.stories().child(me).push();
         Story s = new Story();
-        s.id = ref.getKey();
+        s.id = java.util.UUID.randomUUID().toString();
         s.uid = me;
         s.mediaUrl = url;
         s.mediaType = url == null ? "text" : (video ? "video" : "image");
@@ -201,18 +201,16 @@ public class StoryEditorActivity extends AppCompatActivity {
         s.audience = audience;
         s.timestamp = System.currentTimeMillis();
         s.expiresAt = s.timestamp + Story.LIFETIME_MS;
-        ref.setValue(s)
-                .addOnSuccessListener(v -> {
-                    toast("close".equals(audience) ? "Shared to Close friends" : "Shared to your story");
-                    startActivity(YourStoryActivity.intent(this));
-                    setResult(Activity.RESULT_OK);
-                    finish();
-                })
-                .addOnFailureListener(e -> {
-                    sharing = false;
-                    progress.setVisibility(View.GONE);
-                    toast("Could not share: " + e.getLocalizedMessage());
-                });
+        Content.action("stories.create", ContentJson.write(s), () -> {
+            toast("Story saved");
+            startActivity(YourStoryActivity.intent(this));
+            setResult(Activity.RESULT_OK);
+            finish();
+        }, e -> {
+            sharing = false;
+            progress.setVisibility(View.GONE);
+            toast("Could not save story: " + e.getMessage());
+        });
     }
 
     private void toast(String s) {

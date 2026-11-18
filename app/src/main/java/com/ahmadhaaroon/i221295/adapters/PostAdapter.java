@@ -13,10 +13,6 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.ValueEventListener;
 import com.ahmadhaaroon.i221295.CommentsActivity;
 import com.ahmadhaaroon.i221295.LikeActivity;
 import com.ahmadhaaroon.i221295.MediaViewerActivity;
@@ -24,6 +20,7 @@ import com.ahmadhaaroon.i221295.R;
 import com.ahmadhaaroon.i221295.models.Post;
 import com.ahmadhaaroon.i221295.ui.AvatarView;
 import com.ahmadhaaroon.i221295.util.Db;
+import com.ahmadhaaroon.i221295.util.Content;
 import com.ahmadhaaroon.i221295.util.Images;
 import com.ahmadhaaroon.i221295.util.PostActions;
 import com.ahmadhaaroon.i221295.util.Reactions;
@@ -33,15 +30,13 @@ import com.ahmadhaaroon.i221295.util.UserCache;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 /**
- * Feed of posts used on Home and both profile screens. For every post on screen it keeps a live
- * listener on reactions/{postId} and comments/{postId} so reaction icons and counts update in
- * real time.
+ * Feed of posts used on Home and both profile screens. SQLite observers refresh reaction
+ * icons and comment counts when local actions or server snapshots change.
  */
 public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
@@ -59,12 +54,15 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     private final Map<String, Map<String, String>> reactions = new HashMap<>();
     private final Map<String, Long> commentCounts = new HashMap<>();
-    private final Map<String, ValueEventListener> reactionListeners = new HashMap<>();
-    private final Map<String, ValueEventListener> commentListeners = new HashMap<>();
+    private final Runnable changed = () -> {
+        for (Post p : posts) watch(p.id);
+        notifyDataSetChanged();
+    };
 
     public PostAdapter(Activity activity, HeaderBinder headerBinder) {
         this.activity = activity;
         this.headerBinder = headerBinder;
+        com.ahmadhaaroon.i221295.util.LocalDb.observe(changed);
     }
 
     private int offset() {
@@ -79,9 +77,6 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             ids.add(p.id);
             watch(p.id);
         }
-        for (String id : new ArrayList<>(reactionListeners.keySet())) {
-            if (!ids.contains(id)) unwatch(id);
-        }
         notifyDataSetChanged();
     }
 
@@ -89,50 +84,14 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         return posts.size();
     }
 
-    /** Detaches all Firebase listeners; call from the host's onDestroy. */
+    /** Call from the host's onDestroy. */
     public void release() {
-        for (String id : new ArrayList<>(reactionListeners.keySet())) unwatch(id);
+        com.ahmadhaaroon.i221295.util.LocalDb.removeObserver(changed);
     }
 
     private void watch(String postId) {
-        if (reactionListeners.containsKey(postId)) return;
-        ValueEventListener rl = new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                Map<String, String> map = new LinkedHashMap<>();
-                for (DataSnapshot c : s.getChildren()) map.put(c.getKey(), c.getValue(String.class));
-                reactions.put(postId, map);
-                refresh(postId);
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        };
-        ValueEventListener cl = new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                commentCounts.put(postId, s.getChildrenCount());
-                refresh(postId);
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        };
-        reactionListeners.put(postId, rl);
-        commentListeners.put(postId, cl);
-        Db.reactions(postId).addValueEventListener(rl);
-        Db.comments(postId).addValueEventListener(cl);
-    }
-
-    private void unwatch(String postId) {
-        ValueEventListener rl = reactionListeners.remove(postId);
-        ValueEventListener cl = commentListeners.remove(postId);
-        if (rl != null) Db.reactions(postId).removeEventListener(rl);
-        if (cl != null) Db.comments(postId).removeEventListener(cl);
-        reactions.remove(postId);
-        commentCounts.remove(postId);
+        reactions.put(postId, Content.reactions(postId));
+        commentCounts.put(postId, (long) Content.comments(postId).size());
     }
 
     private void refresh(String postId) {
@@ -211,7 +170,7 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             UserCache.get(p.uid, u -> {
                 if (p.id.equals(boundId)) name.setText(u.displayName());
             });
-            time.setText(TimeFmt.ago(p.timestamp) + " •");
+            time.setText(TimeFmt.ago(p.timestamp) + (Content.status(p.id).isEmpty() ? " •" : " · " + Content.status(p.id)));
             avatar.setOnClickListener(v -> PostActions.openProfile(activity, p.uid));
             name.setOnClickListener(v -> PostActions.openProfile(activity, p.uid));
 

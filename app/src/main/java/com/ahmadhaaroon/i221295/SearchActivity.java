@@ -22,6 +22,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.ahmadhaaroon.i221295.adapters.PersonAdapter;
 import com.ahmadhaaroon.i221295.adapters.PostAdapter;
 import com.ahmadhaaroon.i221295.util.LocalDb;
+import com.ahmadhaaroon.i221295.util.Content;
 import com.ahmadhaaroon.i221295.util.People;
 import com.ahmadhaaroon.i221295.util.Profiles;
 import com.ahmadhaaroon.i221295.util.Session;
@@ -75,7 +76,7 @@ public class SearchActivity extends AppCompatActivity {
                     ((TextView) findViewById(R.id.chip_people)).setText(which == 0 ? "People" : which == 1 ? "Friends" : "Requests");
                     setPostMode(false);
                 }).show());
-        NavHelper.click(this, R.id.chip_posts, () -> NavHelper.pendingFeature(this));
+        NavHelper.click(this, R.id.chip_posts, () -> setPostMode(true));
         NavHelper.click(this, R.id.chip_groups, () -> Toast.makeText(this, "Groups are coming soon", Toast.LENGTH_SHORT).show());
         NavHelper.click(this, R.id.chip_marketplace, () -> startActivity(new Intent(this, MarketplaceActivity.class)));
         NavHelper.click(this, R.id.clear_recent, () -> {
@@ -160,13 +161,18 @@ public class SearchActivity extends AppCompatActivity {
     }
 
     private void showCached() {
-        if (postMode) return;
+        if (postMode) { searchPosts(query.getText().toString().trim().toLowerCase(Locale.ROOT), requestToken); return; }
         String q = query.getText().toString().trim();
         if (!q.isEmpty() || !"everyone".equals(filter)) showPeople(People.cachedSearch(q, filter));
     }
 
     private void searchPosts(String q, int token) {
-        NavHelper.pendingFeature(this);
+        List<com.ahmadhaaroon.i221295.models.Post> matches = new ArrayList<>();
+        for (com.ahmadhaaroon.i221295.models.Post p : Content.posts(null)) {
+            if (p.text != null && p.text.toLowerCase(Locale.ROOT).contains(q)) matches.add(p);
+        }
+        posts.setPosts(matches);
+        findViewById(R.id.noResults).setVisibility(matches.isEmpty() ? View.VISIBLE : View.GONE);
     }
 
     @Override

@@ -3,24 +3,10 @@ package com.ahmadhaaroon.i221295.util;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.widget.Toast;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.MutableData;
-import com.google.firebase.database.Transaction;
 import com.ahmadhaaroon.i221295.MyProfileActivity;
 import com.ahmadhaaroon.i221295.ProfileActivity;
-import com.ahmadhaaroon.i221295.models.AppNotification;
-import com.ahmadhaaroon.i221295.models.Message;
 import com.ahmadhaaroon.i221295.models.Post;
-import com.ahmadhaaroon.i221295.ui.FriendPicker;
-
-import java.util.HashMap;
-import java.util.Map;
 
 /** Reactions, sharing and deleting posts; shared by Home, both profiles and post screens. */
 public final class PostActions {
@@ -33,16 +19,7 @@ public final class PostActions {
      * reaction again (or tapping Like while reacted) removes it.
      */
     public static void react(Post post, String key, String current) {
-        String me = Db.uid();
-        if (me == null) return;
-        if (key == null || key.equals(current)) {
-            Db.reactions(post.id).child(me).removeValue();
-            return;
-        }
-        Db.reactions(post.id).child(me).setValue(key);
-        if (current == null) {
-            Notifs.send(post.uid, AppNotification.REACTION, post.id, "reacted to your post.");
-        }
+        Content.action("posts.react", Content.value(post.id, "key", key == null || key.equals(current) ? "" : key));
     }
 
     public static void toggleLike(Post post, String current) {
@@ -51,38 +28,11 @@ public final class PostActions {
 
     /** Sends the post into a friend's chat as a "post" message and bumps the share counter. */
     public static void share(Activity a, Post post) {
-        FriendPicker.show(a, "Send to", friendUid -> {
-            Message m = new Message();
-            m.type = Message.POST;
-            m.postId = post.id;
-            m.text = post.text;
-            if (post.imageCount() > 0) m.imageUrl = post.images.get(0);
-            Chats.send(friendUid, m);
-            Db.posts().child(post.id).child("shareCount").runTransaction(new Transaction.Handler() {
-                @NonNull
-                @Override
-                public Transaction.Result doTransaction(@NonNull MutableData data) {
-                    Integer n = data.getValue(Integer.class);
-                    data.setValue(n == null ? 1 : n + 1);
-                    return Transaction.success(data);
-                }
-
-                @Override
-                public void onComplete(@Nullable DatabaseError e, boolean c, @Nullable DataSnapshot s) {
-                }
-            });
-            Toast.makeText(a, "Post sent", Toast.LENGTH_SHORT).show();
-        });
+        com.ahmadhaaroon.i221295.NavHelper.pendingFeature(a);
     }
 
     public static void delete(Post post) {
-        Map<String, Object> up = new HashMap<>();
-        up.put("posts/" + post.id, null);
-        up.put("reactions/" + post.id, null);
-        up.put("comments/" + post.id, null);
-        up.put("commentLikes/" + post.id, null);
-        Db.root().updateChildren(up);
-        if (post.images != null) for (String ref : post.images) MediaUpload.delete(ref);
+        Content.action("posts.delete", Content.data(post.id));
     }
 
     public static void openProfile(Context c, String uid) {

@@ -25,11 +25,12 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
-import com.google.firebase.database.DatabaseReference;
 import com.ahmadhaaroon.i221295.models.Post;
 import com.ahmadhaaroon.i221295.ui.AvatarView;
 import com.ahmadhaaroon.i221295.ui.FriendPicker;
 import com.ahmadhaaroon.i221295.util.Db;
+import com.ahmadhaaroon.i221295.util.Content;
+import com.ahmadhaaroon.i221295.util.ContentJson;
 import com.ahmadhaaroon.i221295.util.MediaUpload;
 import com.ahmadhaaroon.i221295.util.UserCache;
 
@@ -220,22 +221,19 @@ public class CreatePostActivity extends AppCompatActivity {
     }
 
     private void write(String body, List<String> urls) {
-        DatabaseReference ref = Db.posts().push();
         Post p = new Post();
-        p.id = ref.getKey();
+        p.id = java.util.UUID.randomUUID().toString();
         p.uid = Db.uid();
         p.text = body;
         p.images = urls;
         p.bgColor = urls.isEmpty() ? bgColor : null;
         p.timestamp = System.currentTimeMillis();
-        ref.setValue(p)
-                .addOnSuccessListener(v -> finish())
-                .addOnFailureListener(e -> {
-                    posting = false;
-                    postButton.setEnabled(true);
-                    postButton.setAlpha(1f);
-                    Toast.makeText(this, "Could not post: " + e.getLocalizedMessage(), Toast.LENGTH_LONG).show();
-                });
+        Content.action("posts.create", ContentJson.write(p), this::finish, e -> {
+            posting = false;
+            postButton.setEnabled(true);
+            postButton.setAlpha(1f);
+            Toast.makeText(this, "Could not save post: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        });
     }
 
     private class ImagesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {

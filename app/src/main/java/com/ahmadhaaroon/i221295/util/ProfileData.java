@@ -1,10 +1,5 @@
 package com.ahmadhaaroon.i221295.util;
 
-import androidx.annotation.NonNull;
-
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.ValueEventListener;
 import com.ahmadhaaroon.i221295.models.Post;
 
 import java.util.ArrayList;
@@ -18,24 +13,10 @@ public final class ProfileData {
 
     /** All posts by {@code uid}, newest first (uses the ".indexOn": "uid" rule). */
     public static void posts(Subs subs, String uid, Callback<List<Post>> cb) {
-        subs.value(Db.posts().orderByChild("uid").equalTo(uid), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                List<Post> list = new ArrayList<>();
-                for (DataSnapshot c : s.getChildren()) {
-                    Post p = c.getValue(Post.class);
-                    if (p == null) continue;
-                    p.id = c.getKey();
-                    list.add(p);
-                }
-                list.sort((a, b) -> Long.compare(b.timestamp, a.timestamp));
-                cb.onResult(list);
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
+        Runnable changed = () -> cb.onResult(Content.posts(uid));
+        LocalDb.observe(changed);
+        subs.add(() -> LocalDb.removeObserver(changed));
+        changed.run();
     }
 
     /** Friend uids of {@code uid}, most recently added first. */

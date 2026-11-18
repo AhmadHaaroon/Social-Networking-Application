@@ -53,7 +53,7 @@ public final class MediaUpload {
                 String ref;
                 synchronized (Profiles.LOCK) {
                     if (owner == null || !owner.equals(Db.uid())) throw new IOException("Please log in again.");
-                    ref = MediaFiles.store(bytes);
+                    ref = MediaFiles.store(bytes, video ? "video/mp4" : "image/jpeg");
                 }
                 MAIN.post(() -> l.onSuccess(ref));
             } catch (Exception e) {

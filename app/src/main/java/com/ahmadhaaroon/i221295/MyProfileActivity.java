@@ -32,6 +32,7 @@ import com.ahmadhaaroon.i221295.util.Subs;
 import com.ahmadhaaroon.i221295.util.TimeFmt;
 import com.ahmadhaaroon.i221295.util.UserCache;
 import com.ahmadhaaroon.i221295.util.LocalDb;
+import com.ahmadhaaroon.i221295.util.ProfileData;
 
 import java.util.List;
 
@@ -52,6 +53,7 @@ public class MyProfileActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.profile_screen);
+        com.ahmadhaaroon.i221295.ui.ProfileLayout.own(this);
         String me = Db.uid();
         if (me == null) {
             finish();
@@ -60,9 +62,9 @@ public class MyProfileActivity extends AppCompatActivity {
 
         NavHelper.click(this, R.id.backarrow, this::finish);
         NavHelper.click(this, R.id.btn_search, () -> NavHelper.open(this, SearchActivity.class));
-        NavHelper.click(this, R.id.btn_cover_camera, () -> pickCover.launch(PictureSendActivity.pick(this, false, false)));
-        NavHelper.click(this, R.id.btn_avatar_camera, () -> pickAvatar.launch(PictureSendActivity.pick(this, false, false)));
-        NavHelper.click(this, R.id.btn_add_story, () -> NavHelper.pendingFeature(this));
+        NavHelper.click(this, R.id.btn_cover_camera, () -> pickCover.launch(PictureSendActivity.profile(this, true)));
+        NavHelper.click(this, R.id.btn_avatar_camera, () -> pickAvatar.launch(PictureSendActivity.profile(this, false)));
+        NavHelper.click(this, R.id.btn_add_story, () -> startActivity(CameraActivity.forStory(this)));
         NavHelper.click(this, R.id.btn_edit_profile, () -> startActivity(new Intent(this, EditProfileActivity.class)));
         NavHelper.click(this, R.id.find_friends, () -> NavHelper.open(this, FriendsActivity.class));
         NavHelper.click(this, R.id.friends_total, () -> NavHelper.open(this, FriendsActivity.class));
@@ -79,7 +81,10 @@ public class MyProfileActivity extends AppCompatActivity {
         posts.setAdapter(postAdapter);
 
         bindFriends(java.util.Collections.emptyList());
-        findViewById(R.id.noPosts).setVisibility(View.VISIBLE);
+        ProfileData.posts(subs, me, list -> {
+            postAdapter.setPosts(list);
+            findViewById(R.id.noPosts).setVisibility(list.isEmpty() ? View.VISIBLE : View.GONE);
+        });
     }
 
     @Override

@@ -46,8 +46,9 @@ public class FriendsActivity extends AppCompatActivity {
     private final Set<String> friends = new HashSet<>();
     private final RequestAdapter requestAdapter = new RequestAdapter();
     private PersonAdapter people;
+    private PersonAdapter closePeople;
     private boolean showAllRequests;
-    private boolean showingFriends;
+    private boolean showingFriends = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,11 +76,15 @@ public class FriendsActivity extends AppCompatActivity {
         RecyclerView peopleList = findViewById(R.id.peopleList);
         peopleList.setLayoutManager(new LinearLayoutManager(this));
         peopleList.setAdapter(people);
+        closePeople = new PersonAdapter(this);
+        RecyclerView closeList = findViewById(R.id.closeList);
+        closeList.setLayoutManager(new LinearLayoutManager(this));
+        closeList.setAdapter(closePeople);
 
         findViewById(R.id.msgBadge).setVisibility(View.GONE);
         findViewById(R.id.notifBadge).setVisibility(View.GONE);
         listen();
-        showFriends(false);
+        showFriends(true);
     }
 
     private void listen() {
@@ -118,6 +123,7 @@ public class FriendsActivity extends AppCompatActivity {
 
     private void showFriends(boolean friendsTab) {
         showingFriends = friendsTab;
+        findViewById(R.id.closeSection).setVisibility(friendsTab ? View.VISIBLE : View.GONE);
         TextView sug = findViewById(R.id.suggestions_chip);
         TextView yours = findViewById(R.id.your_friends_chip);
         sug.setBackgroundResource(friendsTab ? R.drawable.beige_chip : R.drawable.lightseagreen_chip);
@@ -131,10 +137,18 @@ public class FriendsActivity extends AppCompatActivity {
 
     private void showFriendList() {
         List<String> list = new ArrayList<>(friends);
+        List<String> close = new ArrayList<>();
+        for (String uid : new ArrayList<>(list)) {
+            org.json.JSONObject relation = People.relation(uid);
+            if (relation != null && relation.optBoolean("close")) { close.add(uid); list.remove(uid); }
+        }
+        closePeople.setUsers(close);
+        ((TextView) findViewById(R.id.closeHeading)).setText("Close friends (" + close.size() + ")");
+        findViewById(R.id.noCloseFriends).setVisibility(close.isEmpty() ? View.VISIBLE : View.GONE);
         ((TextView) findViewById(R.id.listHeading)).setText(getString(R.string.your_friends_count, list.size()));
         people.setUsers(list);
         TextView empty = findViewById(R.id.emptyPeople);
-        empty.setText(R.string.no_friends_yet);
+        empty.setText(close.isEmpty() ? getString(R.string.no_friends_yet) : "No other friends");
         empty.setVisibility(list.isEmpty() ? View.VISIBLE : View.GONE);
     }
 

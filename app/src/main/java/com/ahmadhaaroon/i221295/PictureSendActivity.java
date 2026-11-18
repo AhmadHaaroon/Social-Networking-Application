@@ -65,6 +65,16 @@ public class PictureSendActivity extends AppCompatActivity {
     private Item previewItem;
     private boolean allowMulti, allowVideo, multiMode;
     private int filter = FILTER_ALL;
+    private String cropMode;
+    private String album;
+    private int loadGeneration;
+    private final java.util.concurrent.ExecutorService galleryIo = Executors.newSingleThreadExecutor();
+    private final ActivityResultLauncher<Intent> adjust = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(), result -> {
+                if (result.getResultCode() == RESULT_OK && result.getData() != null && result.getData().getData() != null) {
+                    deliver(java.util.Collections.singletonList(result.getData().getData()));
+                }
+            });
 
     private ImageView preview;
     private View previewVideoBadge;
@@ -95,6 +105,10 @@ public class PictureSendActivity extends AppCompatActivity {
                 .putExtra(EXTRA_VIDEO, video);
     }
 
+    public static Intent profile(Context context, boolean cover) {
+        return pick(context, false, false).putExtra("cropMode", cover ? "cover" : "avatar");
+    }
+
     public static List<Uri> results(Intent data) {
         List<Uri> out = new ArrayList<>();
         if (data == null) return out;
@@ -107,6 +121,7 @@ public class PictureSendActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.picture_send_screen);
+        cropMode = getIntent().getStringExtra("cropMode");
         allowMulti = getIntent().getBooleanExtra(EXTRA_MULTI, false);
         allowVideo = getIntent().getBooleanExtra(EXTRA_VIDEO, false);
         multiMode = allowMulti;
@@ -114,6 +129,26 @@ public class PictureSendActivity extends AppCompatActivity {
         preview = findViewById(R.id.previewImage);
         previewVideoBadge = findViewById(R.id.previewVideoBadge);
         empty = findViewById(R.id.empty);
+        ((TextView) findViewById(R.id.most_relevant_text)).setText("Next");
+        if ("avatar".equals(cropMode)) {
+            android.widget.RelativeLayout.LayoutParams params = new android.widget.RelativeLayout.LayoutParams(dp(190), dp(190));
+            params.addRule(android.widget.RelativeLayout.CENTER_IN_PARENT);
+            preview.setLayoutParams(params);
+            preview.setOutlineProvider(new android.view.ViewOutlineProvider() {
+                @Override
+                public void getOutline(View view, android.graphics.Outline outline) {
+                    outline.setOval(0, 0, view.getWidth(), view.getHeight());
+                }
+            });
+            preview.setClipToOutline(true);
+        } else if ("cover".equals(cropMode)) {
+            View frame = findViewById(R.id.current_picture);
+            frame.post(() -> { ViewGroup.LayoutParams p = frame.getLayoutParams(); p.height = frame.getWidth() / 2; frame.setLayoutParams(p); });
+        }
+        NavHelper.click(this, R.id.recents_textview, this::chooseAlbum);
+        NavHelper.click(this, R.id.albumArrow, this::chooseAlbum);
+        findViewById(R.id.adjustPhoto).setVisibility(cropMode == null ? View.GONE : View.VISIBLE);
+        NavHelper.click(this, R.id.adjustPhoto, this::done);
         grid = findViewById(R.id.grid);
         grid.setLayoutManager(new GridLayoutManager(this, 4));
         grid.setAdapter(adapter);
@@ -186,9 +221,12 @@ public class PictureSendActivity extends AppCompatActivity {
 
     private void loadMedia() {
         int f = filter;
-        Executors.newSingleThreadExecutor().execute(() -> {
-            List<Item> found = query(f);
+        String selectedAlbum = album;
+        int generation = ++loadGeneration;
+        galleryIo.execute(() -> {
+            List<Item> found = query(f, selectedAlbum);
             runOnUiThread(() -> {
+                if (isDestroyed() || generation != loadGeneration) return;
                 items.clear();
                 items.addAll(found);
                 adapter.notifyDataSetChanged();
@@ -199,7 +237,7 @@ public class PictureSendActivity extends AppCompatActivity {
         });
     }
 
-    private List<Item> query(int f) {
+    private List<Item> query(int f, String selectedAlbum) {
         List<Item> out = new ArrayList<>();
         Uri files = MediaStore.Files.getContentUri("external");
         String[] proj = {MediaStore.Files.FileColumns._ID, MediaStore.Files.FileColumns.MEDIA_TYPE,
@@ -215,7 +253,12 @@ public class PictureSendActivity extends AppCompatActivity {
         } else {
             sel = MediaStore.Files.FileColumns.MEDIA_TYPE + "=" + MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE;
         }
-        try (Cursor c = getContentResolver().query(files, proj, sel, null,
+        String[] args = null;
+        if (selectedAlbum != null) {
+            sel = "(" + sel + ") AND " + MediaStore.Images.ImageColumns.BUCKET_ID + " = ?";
+            args = new String[]{selectedAlbum};
+        }
+        try (Cursor c = getContentResolver().query(files, proj, sel, args,
                 MediaStore.Files.FileColumns.DATE_ADDED + " DESC")) {
             if (c == null) return out;
             while (c.moveToNext() && out.size() < 600) {
@@ -249,6 +292,7 @@ public class PictureSendActivity extends AppCompatActivity {
             selected.add(it);
         }
         adapter.notifyDataSetChanged();
+        ((TextView) findViewById(R.id.most_relevant_text)).setText(allowMulti && !selected.isEmpty() ? "Next (" + selected.size() + ")" : "Next");
     }
 
     private void done() {
@@ -259,6 +303,12 @@ public class PictureSendActivity extends AppCompatActivity {
     }
 
     private void finishWith(List<Uri> uris) {
+        if (cropMode != null && uris != null && !uris.isEmpty()) {
+            adjust.launch(PhotoAdjustActivity.intent(this, uris.get(0), "cover".equals(cropMode)));
+        } else deliver(uris);
+    }
+
+    private void deliver(List<Uri> uris) {
         if (uris == null || uris.isEmpty()) {
             setResult(RESULT_CANCELED);
             finish();
@@ -270,6 +320,45 @@ public class PictureSendActivity extends AppCompatActivity {
         data.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         setResult(RESULT_OK, data);
         finish();
+    }
+
+    private int dp(int value) {
+        return (int) (value * getResources().getDisplayMetrics().density);
+    }
+
+    private void chooseAlbum() {
+        if (!hasPermission()) { fallbackToSystemPicker(); return; }
+        galleryIo.execute(() -> {
+            java.util.Map<String, String> albums = new java.util.LinkedHashMap<>();
+            Uri uri = MediaStore.Files.getContentUri("external");
+            String[] columns = {MediaStore.Images.ImageColumns.BUCKET_ID, MediaStore.Images.ImageColumns.BUCKET_DISPLAY_NAME};
+            String selection = MediaStore.Files.FileColumns.MEDIA_TYPE + (allowVideo ? " IN (1,3)" : " = 1");
+            try (Cursor cursor = getContentResolver().query(uri, columns, selection, null, null)) {
+                if (cursor != null) while (cursor.moveToNext()) albums.put(cursor.getString(0), cursor.getString(1));
+            } catch (Exception ignored) {
+            }
+            runOnUiThread(() -> {
+                if (isDestroyed()) return;
+                List<String> ids = new ArrayList<>(albums.keySet());
+                List<String> names = new ArrayList<>();
+                names.add("Recents");
+                for (String id : ids) names.add(albums.get(id) == null ? "Other photos" : albums.get(id));
+                new androidx.appcompat.app.AlertDialog.Builder(this).setTitle("Choose album")
+                        .setItems(names.toArray(new String[0]), (d, which) -> {
+                            album = which == 0 ? null : ids.get(which - 1);
+                            ((TextView) findViewById(R.id.recents_textview)).setText(names.get(which));
+                            previewItem = null;
+                            if (!allowMulti) selected.clear();
+                            loadMedia();
+                        }).show();
+            });
+        });
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        galleryIo.shutdownNow();
     }
 
     private class GridAdapter extends RecyclerView.Adapter<GridAdapter.VH> {

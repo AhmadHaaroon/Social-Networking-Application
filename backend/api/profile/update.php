@@ -24,7 +24,7 @@ foreach (['photoUrl', 'coverUrl'] as $key) {
     $ref = field($d, $key, 42);
     if ($ref !== '') {
         if (!preg_match('/^media:([a-f0-9-]{36})$/', $ref, $m)) fail('Invalid profile image.');
-        $q = db()->prepare('SELECT id FROM media WHERE id = ? AND owner_id = ?');
+        $q = db()->prepare('SELECT id FROM media WHERE id = ? AND owner_id = ? AND mime LIKE \'image/%\'');
         $q->execute([$m[1], $user['id']]);
         if (!$q->fetch()) fail('Upload your image before saving the profile.', 409);
     }

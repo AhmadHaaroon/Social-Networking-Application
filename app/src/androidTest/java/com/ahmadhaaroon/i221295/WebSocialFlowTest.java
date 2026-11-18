@@ -109,6 +109,7 @@ public class WebSocialFlowTest {
     @Test
     public void normalProfileSave_returnsToProfile_andSyncs() throws Exception {
         try (ActivityScenario<MyProfileActivity> ignored = ActivityScenario.launch(MyProfileActivity.class)) {
+            TestSystemUi.dismissFullscreenHint();
             onView(withId(R.id.btn_edit_profile)).perform(scrollTo(), click());
             onView(withId(R.id.field_bio)).perform(scrollTo(), replaceText("Updated from own profile"));
             closeSoftKeyboard();
@@ -131,6 +132,7 @@ public class WebSocialFlowTest {
     public void offlineFriendRequest_isVisible_thenSyncsOnce() throws Exception {
         String uid = other.getJSONObject("user").getString("uid");
         try (ActivityScenario<SearchActivity> ignored = ActivityScenario.launch(SearchActivity.class)) {
+            TestSystemUi.dismissFullscreenHint();
             onView(withId(R.id.tv_query)).perform(replaceText("friend" + suffix));
             closeSoftKeyboard();
             shell("svc data disable");

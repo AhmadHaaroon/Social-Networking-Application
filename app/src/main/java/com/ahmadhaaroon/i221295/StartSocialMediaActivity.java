@@ -10,23 +10,18 @@ import android.widget.TextView;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.ValueEventListener;
 import com.ahmadhaaroon.i221295.adapters.PostAdapter;
 import com.ahmadhaaroon.i221295.adapters.StoryRowAdapter;
 import com.ahmadhaaroon.i221295.models.Post;
 import com.ahmadhaaroon.i221295.models.Story;
 import com.ahmadhaaroon.i221295.ui.AvatarView;
-import com.ahmadhaaroon.i221295.util.Badges;
 import com.ahmadhaaroon.i221295.util.Db;
-import com.ahmadhaaroon.i221295.util.MediaUpload;
+import com.ahmadhaaroon.i221295.util.Content;
 import com.ahmadhaaroon.i221295.util.Subs;
 import com.ahmadhaaroon.i221295.util.UserCache;
 import com.ahmadhaaroon.i221295.util.LocalDb;
@@ -49,11 +44,17 @@ public class StartSocialMediaActivity extends AppCompatActivity {
     private final Set<String> friends = new HashSet<>();
     private final Set<String> closeFriendOf = new HashSet<>();
     private final List<Post> allPosts = new ArrayList<>();
-    private DataSnapshot storiesSnapshot;
 
     private PostAdapter feedAdapter;
     private StoryRowAdapter storyAdapter;
     private View header;
+    private final android.os.Handler expiryHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable expire = new Runnable() {
+        @Override
+        public void run() {
+            rebuildStories();
+        }
+    };
     private final Runnable changed = this::refreshLocalProfile;
 
     private final ActivityResultLauncher<String> notifPermission = registerForActivityResult(
@@ -86,7 +87,6 @@ public class StartSocialMediaActivity extends AppCompatActivity {
 
         findViewById(R.id.msgBadge).setVisibility(View.GONE);
         findViewById(R.id.notifBadge).setVisibility(View.GONE);
-        // Feed and stories are connected in the next feature stage.
         askForNotificationPermission();
     }
 
@@ -104,75 +104,7 @@ public class StartSocialMediaActivity extends AppCompatActivity {
         h.findViewById(R.id.seagreenpfp).setOnClickListener(v -> open(MyProfileActivity.class));
         prompt.setOnClickListener(v -> open(CreatePostActivity.class));
         h.findViewById(R.id.btnImagePost).setOnClickListener(v ->
-                NavHelper.pendingFeature(this));
-        updateEmptyState();
-    }
-
-    private void listen(String me) {
-        subs.value(Db.friends(me), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                friends.clear();
-                for (DataSnapshot c : s.getChildren()) friends.add(c.getKey());
-                rebuildFeed();
-                rebuildStories();
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
-        subs.value(Db.root().child("closeFriendOf").child(me), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                closeFriendOf.clear();
-                for (DataSnapshot c : s.getChildren()) closeFriendOf.add(c.getKey());
-                rebuildStories();
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
-        subs.value(Db.posts().orderByChild("timestamp").limitToLast(FEED_LIMIT), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                allPosts.clear();
-                for (DataSnapshot c : s.getChildren()) {
-                    Post p = c.getValue(Post.class);
-                    if (p == null) continue;
-                    p.id = c.getKey();
-                    allPosts.add(p);
-                }
-                rebuildFeed();
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
-        subs.value(Db.stories(), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                storiesSnapshot = s;
-                rebuildStories();
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
-    }
-
-    /** Posts from me and my friends, newest first. */
-    private void rebuildFeed() {
-        String me = Db.uid();
-        List<Post> visible = new ArrayList<>();
-        for (Post p : allPosts) {
-            if (me.equals(p.uid) || friends.contains(p.uid)) visible.add(p);
-        }
-        visible.sort((a, b) -> Long.compare(b.timestamp, a.timestamp));
-        feedAdapter.setPosts(visible);
+                startActivity(new Intent(this, CreatePostActivity.class).putExtra("openPicker", true)));
         updateEmptyState();
     }
 
@@ -181,42 +113,24 @@ public class StartSocialMediaActivity extends AppCompatActivity {
         header.findViewById(R.id.emptyFeed).setVisibility(feedAdapter.postCount() == 0 ? View.VISIBLE : View.GONE);
     }
 
-    /** Active (less than 24h old) stories from me and my friends; close-friends stories only if allowed. */
     private void rebuildStories() {
-        if (storiesSnapshot == null) return;
-        String me = Db.uid();
-        long now = System.currentTimeMillis();
-        List<StoryRowAdapter.Group> mine = new ArrayList<>();
-        List<StoryRowAdapter.Group> others = new ArrayList<>();
-        for (DataSnapshot userNode : storiesSnapshot.getChildren()) {
-            String owner = userNode.getKey();
-            boolean isMe = me.equals(owner);
-            if (!isMe && !friends.contains(owner)) continue;
-            StoryRowAdapter.Group g = new StoryRowAdapter.Group();
-            g.uid = owner;
-            for (DataSnapshot sn : userNode.getChildren()) {
-                Story st = sn.getValue(Story.class);
-                if (st == null) continue;
-                if (!st.isActive(now)) {
-                    // Only the owner may delete; other people's expired stories are just hidden.
-                    if (isMe) {
-                        sn.getRef().removeValue();
-                        Db.root().child("storyViews").child(me).child(sn.getKey()).removeValue();
-                        MediaUpload.delete(st.mediaUrl);
-                    }
-                    continue;
-                }
-                if ("close".equals(st.audience) && !isMe && !closeFriendOf.contains(owner)) continue;
-                st.id = sn.getKey();
-                g.stories.add(st);
+        java.util.Map<String, StoryRowAdapter.Group> groups = new java.util.LinkedHashMap<>();
+        for (Story story : Content.stories(null)) {
+            StoryRowAdapter.Group group = groups.get(story.uid);
+            if (group == null) {
+                group = new StoryRowAdapter.Group();
+                group.uid = story.uid;
+                groups.put(story.uid, group);
             }
-            if (g.stories.isEmpty()) continue;
-            g.stories.sort((a, b) -> Long.compare(a.timestamp, b.timestamp));
-            (isMe ? mine : others).add(g);
+            group.stories.add(story);
         }
-        others.sort((a, b) -> Long.compare(b.latest().timestamp, a.latest().timestamp));
-        mine.addAll(others);
-        storyAdapter.setGroups(mine);
+        List<StoryRowAdapter.Group> list = new ArrayList<>(groups.values());
+        list.sort((a, b) -> a.uid.equals(Db.uid()) ? -1 : b.uid.equals(Db.uid()) ? 1 : Long.compare(b.latest().timestamp, a.latest().timestamp));
+        storyAdapter.setGroups(list);
+        expiryHandler.removeCallbacks(expire);
+        long nextExpiry = Long.MAX_VALUE;
+        for (StoryRowAdapter.Group group : list) for (Story story : group.stories) nextExpiry = Math.min(nextExpiry, story.expiresAt);
+        if (nextExpiry != Long.MAX_VALUE) expiryHandler.postDelayed(expire, Math.max(1, nextExpiry - System.currentTimeMillis() + 1));
     }
 
     private void askForNotificationPermission() {
@@ -235,10 +149,12 @@ public class StartSocialMediaActivity extends AppCompatActivity {
         super.onResume();
         LocalDb.observe(changed);
         refreshLocalProfile();
+        com.ahmadhaaroon.i221295.util.Profiles.refresh(this);
     }
 
     @Override
     protected void onPause() {
+        expiryHandler.removeCallbacks(expire);
         LocalDb.removeObserver(changed);
         super.onPause();
     }
@@ -248,7 +164,10 @@ public class StartSocialMediaActivity extends AppCompatActivity {
             AuthFlow.afterSignIn(this);
             return;
         }
-        if (header != null) bindHeader(header);
+        if (feedAdapter == null) return;
+        feedAdapter.setPosts(Content.posts(null));
+        rebuildStories();
+        updateEmptyState();
     }
 
     @Override

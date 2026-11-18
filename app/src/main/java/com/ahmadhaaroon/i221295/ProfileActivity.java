@@ -67,6 +67,7 @@ public class ProfileActivity extends AppCompatActivity {
             return;
         }
         setContentView(R.layout.activity_profile);
+        com.ahmadhaaroon.i221295.ui.ProfileLayout.other(this);
 
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
         findViewById(R.id.btnSearch).setOnClickListener(v -> startActivity(new Intent(this, SearchActivity.class)));
@@ -92,7 +93,7 @@ public class ProfileActivity extends AppCompatActivity {
         subs.add(() -> LocalDb.removeObserver(changed));
         refreshProfile();
         stateHandle = Friends.observe(uid, this::showState);
-        showPosts(new ArrayList<>());
+        ProfileData.posts(subs, uid, this::showPosts);
     }
 
     @Override

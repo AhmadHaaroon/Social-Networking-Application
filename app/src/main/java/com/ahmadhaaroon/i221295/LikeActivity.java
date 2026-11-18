@@ -9,15 +9,12 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.ValueEventListener;
 import com.ahmadhaaroon.i221295.models.Post;
 import com.ahmadhaaroon.i221295.ui.AvatarView;
 import com.ahmadhaaroon.i221295.util.Db;
+import com.ahmadhaaroon.i221295.util.Content;
 import com.ahmadhaaroon.i221295.util.Images;
 import com.ahmadhaaroon.i221295.util.PostActions;
 import com.ahmadhaaroon.i221295.util.Reactions;
@@ -63,34 +60,18 @@ public class LikeActivity extends AppCompatActivity {
             finish();
         });
 
-        subs.value(Db.posts().child(postId), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                post = s.getValue(Post.class);
-                if (post == null) {
-                    finish();
-                    return;
-                }
-                post.id = postId;
-                bindPost();
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
-        subs.value(Db.reactions(postId), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                myReaction = s.child(Db.uid()).getValue(String.class);
-                buildBar();
-                bindReactors(s);
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
+        Runnable changed = () -> {
+            post = Content.post(postId);
+            if (post == null) { finish(); return; }
+            bindPost();
+            java.util.Map<String, String> reactions = Content.reactions(postId);
+            myReaction = reactions.get(Db.uid());
+            buildBar();
+            bindReactors(reactions);
+        };
+        com.ahmadhaaroon.i221295.util.LocalDb.observe(changed);
+        subs.add(() -> com.ahmadhaaroon.i221295.util.LocalDb.removeObserver(changed));
+        changed.run();
     }
 
     private void bindPost() {
@@ -133,15 +114,15 @@ public class LikeActivity extends AppCompatActivity {
         findViewById(R.id.removeReaction).setVisibility(current >= 0 ? View.VISIBLE : View.GONE);
     }
 
-    private void bindReactors(DataSnapshot s) {
+    private void bindReactors(java.util.Map<String, String> s) {
         LinearLayout list = findViewById(R.id.reactors);
         list.removeAllViews();
         float d = getResources().getDisplayMetrics().density;
         ((TextView) findViewById(R.id.reactorsHeading)).setText(
-                getString(R.string.reactions_count, s.getChildrenCount()));
-        for (DataSnapshot c : s.getChildren()) {
+                getString(R.string.reactions_count, s.size()));
+        for (java.util.Map.Entry<String, String> c : s.entrySet()) {
             String uid = c.getKey();
-            int idx = Reactions.index(c.getValue(String.class));
+            int idx = Reactions.index(c.getValue());
             LinearLayout row = new LinearLayout(this);
             row.setGravity(Gravity.CENTER_VERTICAL);
             row.setPadding((int) (15 * d), (int) (6 * d), (int) (15 * d), (int) (6 * d));

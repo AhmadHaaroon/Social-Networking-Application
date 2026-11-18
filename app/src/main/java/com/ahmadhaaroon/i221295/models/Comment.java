@@ -4,7 +4,10 @@ import com.google.firebase.database.IgnoreExtraProperties;
 
 @IgnoreExtraProperties
 public class Comment {
+    public boolean pending;
+    public String syncError;
     public String id;
+    public String postId;
     public String uid;
     public String text;
     public String imageUrl;

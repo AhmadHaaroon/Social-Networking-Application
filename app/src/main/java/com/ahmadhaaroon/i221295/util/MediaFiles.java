@@ -25,7 +25,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
-/** Durable image files survive process death while their profile action is waiting to sync. */
+/** Durable media files survive process death while their action is waiting to sync. */
 public final class MediaFiles {
 
     private static File directory;
@@ -49,8 +49,13 @@ public final class MediaFiles {
     }
 
     public static String store(byte[] bytes) throws Exception {
+        return store(bytes, "image/jpeg");
+    }
+
+    public static String store(byte[] bytes, String mime) throws Exception {
         String ref = "media:" + UUID.randomUUID();
         write(file(ref), bytes);
+        write(new File(file(ref) + ".mime"), mime.getBytes(StandardCharsets.UTF_8));
         return ref;
     }
 
@@ -86,26 +91,43 @@ public final class MediaFiles {
         });
     }
 
-    public static void uploadProfile(JSONObject p, String token) throws Exception {
-        for (String key : new String[]{"photoUrl", "coverUrl"}) {
-            String ref = p.optString(key);
-            if (!isRef(ref) || !file(ref).exists() || new File(file(ref) + ".sent").exists()) continue;
-            String boundary = "Kinnect" + UUID.randomUUID().toString().replace("-", "");
-            ByteArrayOutputStream body = new ByteArrayOutputStream();
-            body.write(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"id\"\r\n\r\n"
-                    + ref.substring(6) + "\r\n--" + boundary
-                    + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"photo.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n").getBytes(StandardCharsets.UTF_8));
-            try (java.io.FileInputStream in = new java.io.FileInputStream(file(ref))) {
-                byte[] buffer = new byte[8192];
-                int n;
-                while ((n = in.read(buffer)) != -1) body.write(buffer, 0, n);
-            }
-            body.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
-            request("media/upload.php", body.toByteArray(), "multipart/form-data; boundary=" + boundary, token);
-            synchronized (Profiles.LOCK) {
-                if (token.equals(WebSession.token()) && file(ref).exists()) new File(file(ref) + ".sent").createNewFile();
-            }
+    private static void upload(String ref, String token) throws Exception {
+        if (!isRef(ref) || !file(ref).exists() || new File(file(ref) + ".sent").exists()) return;
+        String mime = "image/jpeg";
+        File meta = new File(file(ref) + ".mime");
+        if (meta.exists()) try (java.io.FileInputStream in = new java.io.FileInputStream(meta)) {
+            byte[] value = new byte[80];
+            int n = in.read(value);
+            if (n > 0) mime = new String(value, 0, n, StandardCharsets.UTF_8);
         }
+        String boundary = "Kinnect" + UUID.randomUUID().toString().replace("-", "");
+        ByteArrayOutputStream body = new ByteArrayOutputStream();
+        body.write(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"id\"\r\n\r\n"
+                + ref.substring(6) + "\r\n--" + boundary
+                + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"media\"\r\nContent-Type: " + mime + "\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+        try (java.io.FileInputStream in = new java.io.FileInputStream(file(ref))) {
+            byte[] buffer = new byte[8192];
+            int n;
+            while ((n = in.read(buffer)) != -1) body.write(buffer, 0, n);
+        }
+        body.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+        request("media/upload.php", body.toByteArray(), "multipart/form-data; boundary=" + boundary, token);
+        synchronized (Profiles.LOCK) {
+            if (token.equals(WebSession.token()) && file(ref).exists()) new File(file(ref) + ".sent").createNewFile();
+        }
+    }
+
+
+    public static void uploadProfile(JSONObject p, String token) throws Exception {
+        upload(p.optString("photoUrl"), token);
+        upload(p.optString("coverUrl"), token);
+    }
+
+    public static void uploadContent(JSONObject p, String token) throws Exception {
+        upload(p.optString("mediaUrl"), token);
+        upload(p.optString("imageUrl"), token);
+        org.json.JSONArray images = p.optJSONArray("images");
+        if (images != null) for (int i = 0; i < images.length(); i++) upload(images.getString(i), token);
     }
 
     private static byte[] request(String path, byte[] body, String type, String token) throws Exception {
@@ -148,7 +170,7 @@ public final class MediaFiles {
             throw Api.failure(e.getCause());
         } catch (java.util.concurrent.TimeoutException e) {
             request.cancel();
-            throw new Api.Failure("Image upload timed out. It will retry automatically.", 0);
+            throw new Api.Failure("Media transfer timed out. It will retry automatically.", 0);
         } catch (InterruptedException e) {
             request.cancel();
             Thread.currentThread().interrupt();

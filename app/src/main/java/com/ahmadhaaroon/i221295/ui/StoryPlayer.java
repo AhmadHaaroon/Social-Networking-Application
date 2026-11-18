@@ -16,7 +16,6 @@ import android.widget.VideoView;
 import com.ahmadhaaroon.i221295.R;
 import com.ahmadhaaroon.i221295.models.Story;
 import com.ahmadhaaroon.i221295.util.Images;
-import com.ahmadhaaroon.i221295.util.MediaCache;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,6 +46,7 @@ public class StoryPlayer {
     private final List<Story> stories = new ArrayList<>();
 
     private int index = -1;
+    private int generation;
     private long elapsed;
     private long duration = PHOTO_MS;
     private boolean paused;
@@ -55,8 +55,9 @@ public class StoryPlayer {
     private final Runnable tick = new Runnable() {
         @Override
         public void run() {
+            Story s = current();
+            if (s != null && !s.isActive(System.currentTimeMillis())) { next(); return; }
             if (!paused && ready) {
-                Story s = current();
                 if (s != null && s.isVideo() && video.isPlaying()) elapsed = video.getCurrentPosition();
                 else elapsed += TICK_MS;
                 if (index >= 0 && index < bars.size()) {
@@ -129,6 +130,7 @@ public class StoryPlayer {
 
     private void show(int i) {
         handler.removeCallbacks(tick);
+        final int shownGeneration = ++generation;
         if (i < 0 || i >= stories.size()) {
             listener.onFinished();
             return;
@@ -136,19 +138,19 @@ public class StoryPlayer {
         index = i;
         for (int b = 0; b < bars.size(); b++) bars.get(b).setProgress(b < i ? 1000 : 0);
         Story s = stories.get(i);
+        if (!s.isActive(System.currentTimeMillis())) { show(i + 1); return; }
         elapsed = 0;
         duration = PHOTO_MS;
         ready = false;
 
         if (s.isVideo()) {
-            // Show the first frame while the clip is fetched from the database, then play it.
+            // Download once to the local media cache before playing.
             video.stopPlayback();
             video.setVisibility(View.GONE);
             image.setVisibility(View.VISIBLE);
-            Images.load(image, s.mediaUrl);
-            final int shown = i;
-            MediaCache.resolve(activity, s.mediaUrl, file -> {
-                if (index != shown) return;
+            Images.clear(image);
+            com.ahmadhaaroon.i221295.util.MediaFiles.resolve(s.mediaUrl, file -> {
+                if (generation != shownGeneration) return;
                 if (file == null) {
                     ready = true;
                     return;
@@ -210,6 +212,7 @@ public class StoryPlayer {
     }
 
     public void release() {
+        generation++;
         handler.removeCallbacksAndMessages(null);
         video.stopPlayback();
     }

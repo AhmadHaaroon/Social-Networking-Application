@@ -4,9 +4,7 @@ import android.content.Context;
 
 import androidx.annotation.NonNull;
 import androidx.work.BackoffPolicy;
-import androidx.work.Constraints;
 import androidx.work.ExistingWorkPolicy;
-import androidx.work.NetworkType;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
 import androidx.work.Worker;
@@ -35,7 +33,6 @@ public class SyncWorker extends Worker {
 
     private static void enqueue(Context context, ExistingWorkPolicy policy) {
         OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(SyncWorker.class)
-                .setConstraints(new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.SECONDS)
                 .build();
         WorkManager.getInstance(context).enqueueUniqueWork("kinnect_sync", policy, request);
@@ -45,6 +42,8 @@ public class SyncWorker extends Worker {
     @Override
     public Result doWork() {
         synchronized (RUN_LOCK) {
+            // XAMPP can be reachable on Wi-Fi even when Android cannot validate internet access.
+            if (!Connection.connected(getApplicationContext())) return Result.retry();
             SyncStatus.begin();
             String token = "";
             try {
@@ -69,12 +68,15 @@ public class SyncWorker extends Worker {
                     String id = action.getString("actionId");
                     try {
                         boolean friendAction = "friends.action".equals(action.optString("operation"));
-                        if (!friendAction) MediaFiles.uploadProfile(action, token);
-                        JSONObject response = Api.call(friendAction ? "friends/action.php" : "profile/update.php", action, token);
-                        if (friendAction) response = Api.call("social/state.php", null, token);
+                        boolean contentAction = action.has("data");
+                        if (contentAction) MediaFiles.uploadContent(action.getJSONObject("data"), token);
+                        else if (!friendAction) MediaFiles.uploadProfile(action, token);
+                        JSONObject response = Api.call(contentAction ? "content/action.php" : friendAction ? "friends/action.php" : "profile/update.php", action, token);
+                        if (friendAction || contentAction) response = Api.call("social/state.php", null, token);
                         synchronized (Profiles.LOCK) {
                             if (!token.equals(WebSession.token())) return Result.success();
-                            if (friendAction) LocalDb.get().completeFriend(id, response);
+                            if (contentAction) LocalDb.get().completeContent(id, response);
+                            else if (friendAction) LocalDb.get().completeFriend(id, response);
                             else LocalDb.get().complete(id, response.getJSONObject("user"));
                         }
                     } catch (Api.Failure e) {
@@ -89,7 +91,8 @@ public class SyncWorker extends Worker {
                                 LocalDb.changed();
                                 return Result.failure();
                             }
-                            if ("friends.action".equals(action.optString("operation"))) LocalDb.get().rejectFriend(id, e.getMessage());
+                            if (action.has("data")) LocalDb.get().rejectContent(id, e.getMessage());
+                            else if ("friends.action".equals(action.optString("operation"))) LocalDb.get().rejectFriend(id, e.getMessage());
                             else LocalDb.get().reject(id, uid, e.getMessage());
                         }
                     }

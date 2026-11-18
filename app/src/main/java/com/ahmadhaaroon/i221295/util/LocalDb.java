@@ -33,7 +33,7 @@ public final class LocalDb extends SQLiteOpenHelper {
     }
 
     private LocalDb(Context context) {
-        super(context, "kinnect.db", null, 2);
+        super(context, "kinnect.db", null, 3);
         setWriteAheadLoggingEnabled(true);
     }
 
@@ -46,6 +46,7 @@ public final class LocalDb extends SQLiteOpenHelper {
         db.execSQL("CREATE TABLE revocations (id INTEGER PRIMARY KEY AUTOINCREMENT, token TEXT NOT NULL)");
         db.execSQL("CREATE TABLE server_friends (id TEXT PRIMARY KEY, json TEXT NOT NULL)");
         db.execSQL("CREATE TABLE cache_meta (name TEXT PRIMARY KEY, value TEXT)");
+        createContent(db);
         // Feature stages add their query columns when their cache becomes active.
         for (String table : new String[]{"messages", "posts", "stories", "friends"}) {
             db.execSQL("CREATE TABLE " + table + " (id TEXT PRIMARY KEY, json TEXT NOT NULL)");
@@ -59,6 +60,12 @@ public final class LocalDb extends SQLiteOpenHelper {
             db.execSQL("CREATE TABLE cache_meta (name TEXT PRIMARY KEY, value TEXT)");
             db.execSQL("INSERT INTO cache_meta SELECT 'owner', uid FROM users LIMIT 1");
         }
+        if (oldVersion < 3) createContent(db);
+    }
+
+    private void createContent(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE server_content (kind TEXT NOT NULL, id TEXT NOT NULL, json TEXT NOT NULL, PRIMARY KEY(kind, id))");
+        db.execSQL("CREATE TABLE content_cache (kind TEXT NOT NULL, id TEXT NOT NULL, json TEXT NOT NULL, PRIMARY KEY(kind, id))");
     }
 
     public static void observe(Runnable observer) {
@@ -213,7 +220,7 @@ public final class LocalDb extends SQLiteOpenHelper {
                 row.put("token", encrypted);
                 db.insertOrThrow("revocations", null, row);
             }
-            for (String table : new String[]{"users", "pending_actions", "messages", "posts", "stories", "friends", "server_friends", "cache_meta"}) {
+            for (String table : new String[]{"users", "pending_actions", "messages", "posts", "stories", "friends", "server_friends", "cache_meta", "server_content", "content_cache"}) {
                 db.delete(table, null, null);
             }
             db.setTransactionSuccessful();
@@ -296,6 +303,7 @@ public final class LocalDb extends SQLiteOpenHelper {
                 db.insertOrThrow("server_friends", null, v);
             }
             rebaseFriends();
+            if (response.has("content")) acceptContent(response.getJSONObject("content"));
             db.setTransactionSuccessful();
         } finally {
             db.endTransaction();
@@ -382,4 +390,144 @@ public final class LocalDb extends SQLiteOpenHelper {
     public synchronized void revoked(String id) {
         getWritableDatabase().delete("revocations", "id = ?", new String[]{id});
     }
+    public synchronized List<JSONObject> content(String kind) {
+        purgeStories();
+        List<JSONObject> out = new ArrayList<>();
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT json FROM content_cache WHERE kind = ?", new String[]{kind})) {
+            while (c.moveToNext()) out.add(new JSONObject(c.getString(0)));
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+        return out;
+    }
+
+    private void putContent(String table, String kind, JSONObject row) throws Exception {
+        ContentValues v = new ContentValues();
+        v.put("kind", kind);
+        v.put("id", row.getString("id"));
+        v.put("json", row.toString());
+        getWritableDatabase().insertWithOnConflict(table, null, v, SQLiteDatabase.CONFLICT_REPLACE);
+    }
+
+    private void removeContent(String kind, String id) {
+        getWritableDatabase().delete("content_cache", "kind = ? AND id = ?", new String[]{kind, id});
+    }
+
+    private void purgeStories() {
+        SQLiteDatabase db = getWritableDatabase();
+        for (String table : new String[]{"server_content", "content_cache"}) {
+            List<String> expired = new ArrayList<>();
+            try (Cursor c = db.rawQuery("SELECT id, json FROM " + table + " WHERE kind = 'stories'", null)) {
+                while (c.moveToNext()) if (new JSONObject(c.getString(1)).optLong("expiresAt") <= System.currentTimeMillis()) expired.add(c.getString(0));
+            } catch (Exception e) {
+                throw new IllegalStateException(e);
+            }
+            for (String id : expired) db.delete(table, "kind = 'stories' AND id = ?", new String[]{id});
+        }
+    }
+
+    private void acceptContent(JSONObject state) throws Exception {
+        SQLiteDatabase db = getWritableDatabase();
+        db.delete("server_content", null, null);
+        String[] kinds = {"posts", "comments", "reactions", "comment_likes", "stories", "story_views"};
+        for (String kind : kinds) {
+            JSONArray rows = state.getJSONArray(kind);
+            for (int i = 0; i < rows.length(); i++) putContent("server_content", kind, rows.getJSONObject(i));
+        }
+        rebaseContent();
+    }
+
+    private void rebaseContent() throws Exception {
+        SQLiteDatabase db = getWritableDatabase();
+        db.delete("content_cache", null, null);
+        db.execSQL("INSERT INTO content_cache SELECT * FROM server_content");
+        try (Cursor c = db.rawQuery("SELECT operation, payload, user_id, state, error FROM pending_actions WHERE operation LIKE 'posts.%' OR operation LIKE 'comments.%' OR operation LIKE 'stories.%' ORDER BY sequence", null)) {
+            while (c.moveToNext()) {
+                String op = c.getString(0), me = c.getString(2);
+                JSONObject p = new JSONObject(c.getString(1)).getJSONObject("data");
+                String id = p.getString("id");
+                String kind = op.substring(0, op.indexOf('.'));
+                boolean failed = "failed".equals(c.getString(3));
+                if (op.endsWith(".create")) {
+                    p.put("uid", me).put("pending", !failed);
+                    if (failed) p.put("syncError", c.getString(4));
+                    putContent("content_cache", kind, p);
+                } else if (!failed && op.endsWith(".delete")) {
+                    removeContent(kind, id);
+                    if (kind.equals("posts")) {
+                        for (JSONObject row : content("comments")) if (id.equals(row.optString("postId"))) removeContent("comments", row.getString("id"));
+                    } else if (kind.equals("comments")) {
+                        for (JSONObject row : content("comments")) if (id.equals(row.optString("parentId"))) removeContent("comments", row.getString("id"));
+                    }
+                } else if (!failed && op.equals("posts.react")) {
+                    String key = p.optString("key");
+                    if (key.isEmpty()) removeContent("reactions", id + ":" + me);
+                    else putContent("content_cache", "reactions", new JSONObject().put("id", id + ":" + me).put("postId", id).put("uid", me).put("key", key));
+                } else if (!failed && op.equals("comments.like")) {
+                    if (!p.optBoolean("liked")) removeContent("comment_likes", id + ":" + me);
+                    else putContent("content_cache", "comment_likes", new JSONObject().put("id", id + ":" + me).put("commentId", id).put("uid", me));
+                }
+            }
+        }
+        purgeStories();
+    }
+
+    public synchronized void enqueueContent(String uid, JSONObject payload) throws Exception {
+        SQLiteDatabase db = getWritableDatabase();
+        db.beginTransaction();
+        try {
+            ContentValues row = new ContentValues();
+            row.put("action_id", payload.getString("actionId"));
+            row.put("user_id", uid);
+            row.put("operation", payload.getString("operation"));
+            row.put("payload", payload.toString());
+            db.insertOrThrow("pending_actions", null, row);
+            rebaseContent();
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+        changed();
+    }
+
+    public synchronized void completeContent(String id, JSONObject state) throws Exception {
+        SQLiteDatabase db = getWritableDatabase();
+        db.beginTransaction();
+        try {
+            db.delete("pending_actions", "action_id = ?", new String[]{id});
+            acceptSocial(state);
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+        changed();
+    }
+
+    public synchronized void rejectContent(String id, String error) throws Exception {
+        SQLiteDatabase db = getWritableDatabase();
+        db.beginTransaction();
+        try {
+            ContentValues row = new ContentValues();
+            row.put("state", "failed"); row.put("error", error);
+            db.update("pending_actions", row, "action_id = ?", new String[]{id});
+            rebaseContent();
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+        changed();
+    }
+
+    public synchronized String contentStatus(String id) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT payload, state, error FROM pending_actions WHERE operation LIKE 'posts.%' OR operation LIKE 'comments.%' OR operation LIKE 'stories.%' ORDER BY sequence DESC", null)) {
+            while (c.moveToNext()) {
+                JSONObject p = new JSONObject(c.getString(0)).optJSONObject("data");
+                if (p != null && (id.equals(p.optString("id")) || id.equals(p.optString("postId")))) return "failed".equals(c.getString(1)) ? "Couldn't sync: " + c.getString(2) : "Pending";
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+        return "";
+    }
+
 }

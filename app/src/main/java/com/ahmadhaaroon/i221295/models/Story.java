@@ -7,6 +7,8 @@ import com.google.firebase.database.IgnoreExtraProperties;
 public class Story {
     public static final long LIFETIME_MS = 24L * 60 * 60 * 1000;
 
+    public boolean pending;
+    public String syncError;
     public String id;
     public String uid;
     public String mediaUrl;

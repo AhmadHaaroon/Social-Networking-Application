@@ -4,36 +4,25 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.inputmethod.EditorInfo;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.ValueEventListener;
-import com.ahmadhaaroon.i221295.models.AppNotification;
-import com.ahmadhaaroon.i221295.models.Message;
 import com.ahmadhaaroon.i221295.models.Story;
 import com.ahmadhaaroon.i221295.ui.AvatarView;
 import com.ahmadhaaroon.i221295.ui.StoryPlayer;
-import com.ahmadhaaroon.i221295.util.Chats;
-import com.ahmadhaaroon.i221295.util.Db;
-import com.ahmadhaaroon.i221295.util.Notifs;
+import com.ahmadhaaroon.i221295.util.Content;
 import com.ahmadhaaroon.i221295.util.PostActions;
 import com.ahmadhaaroon.i221295.util.TimeFmt;
 import com.ahmadhaaroon.i221295.util.UserCache;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Viewing a friend's story (screen 11). Records a view in storyViews/{owner}/{storyId}/{me};
- * replies and quick reactions arrive in the owner's chat.
+ * Viewing a friend's cached story (screen 11). Views are queued for the web service.
  */
 public class StoryViewerActivity extends AppCompatActivity implements StoryPlayer.Listener {
 
@@ -95,51 +84,20 @@ public class StoryViewerActivity extends AppCompatActivity implements StoryPlaye
 
     /** Loads the owner's active stories; close-friends stories only if I am on their list. */
     private void load() {
-        String me = Db.uid();
-        Db.closeFriends(owner).child(me).addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot cf) {
-                boolean closeFriend = cf.exists();
-                Db.stories().child(owner).addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(@NonNull DataSnapshot s) {
-                        long now = System.currentTimeMillis();
-                        List<Story> list = new ArrayList<>();
-                        for (DataSnapshot c : s.getChildren()) {
-                            Story st = c.getValue(Story.class);
-                            if (st == null || !st.isActive(now)) continue;
-                            if ("close".equals(st.audience) && !closeFriend) continue;
-                            st.id = c.getKey();
-                            list.add(st);
-                        }
-                        if (list.isEmpty()) {
-                            Toast.makeText(StoryViewerActivity.this, "This story is no longer available", Toast.LENGTH_SHORT).show();
-                            finish();
-                            return;
-                        }
-                        list.sort((a, b) -> Long.compare(a.timestamp, b.timestamp));
-                        loaded = true;
-                        player.setStories(list, 0);
-                    }
-
-                    @Override
-                    public void onCancelled(@NonNull DatabaseError error) {
-                        finish();
-                    }
-                });
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                finish();
-            }
-        });
+        List<Story> list = Content.stories(owner);
+        if (list.isEmpty()) {
+            Toast.makeText(this, "This story is no longer available", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+        loaded = true;
+        player.setStories(list, 0);
     }
 
     @Override
     public void onShow(Story story, int index) {
         ((TextView) findViewById(R.id.story_time)).setText(TimeFmt.ago(story.timestamp) + " •");
-        Db.storyViews(owner, story.id).child(Db.uid()).setValue(System.currentTimeMillis());
+        Content.action("stories.view", Content.data(story.id));
     }
 
     @Override
@@ -148,30 +106,11 @@ public class StoryViewerActivity extends AppCompatActivity implements StoryPlaye
     }
 
     private void sendReply() {
-        String text = reply.getText().toString().trim();
-        Story s = player.current();
-        if (text.isEmpty() || s == null) return;
-        Message m = new Message();
-        m.type = Message.STORY_REPLY;
-        m.text = text;
-        m.imageUrl = s.isVideo() ? null : s.mediaUrl;
-        Chats.send(owner, m);
-        reply.setText("");
-        reply.clearFocus();
-        ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(reply.getWindowToken(), 0);
-        Toast.makeText(this, "Reply sent", Toast.LENGTH_SHORT).show();
+        NavHelper.pendingFeature(this);
     }
 
     private void react(String emoji) {
-        Story s = player.current();
-        if (s == null) return;
-        Message m = new Message();
-        m.type = Message.STORY_REPLY;
-        m.text = emoji;
-        m.imageUrl = s.isVideo() ? null : s.mediaUrl;
-        Chats.send(owner, m);
-        Notifs.send(owner, AppNotification.STORY_REACTION, null, "reacted " + emoji + " to your story.");
-        Toast.makeText(this, emoji + " sent", Toast.LENGTH_SHORT).show();
+        NavHelper.pendingFeature(this);
     }
 
     @Override

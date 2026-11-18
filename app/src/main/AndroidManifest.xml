@@ -56,6 +56,7 @@
         <activity android:name=".LikeActivity" android:exported="false" />
         <activity android:name=".CommentsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".CreatePostActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".PhotoAdjustActivity" android:exported="false" />
         <activity android:name=".PictureSendActivity" android:exported="false" />
         <activity android:name=".CameraActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".StoryEditorActivity" android:exported="false" android:windowSoftInputMode="adjustPan" />

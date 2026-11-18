@@ -158,7 +158,7 @@
         android:layout_marginTop="14dp">
 
         <TextView
-            android:id="@+id/suggestions_chip"
+            android:id="@+id/your_friends_chip"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="18dp"
@@ -167,23 +167,23 @@
             android:paddingTop="8dp"
             android:paddingBottom="8dp"
             android:background="@drawable/beige_chip"
-            android:text="@string/suggestions"
+            android:text="@string/your_friends"
             android:textColor="@color/black"
             android:textStyle="bold"
             android:textSize="14sp"/>
 
         <TextView
-        android:id="@+id/your_friends_chip"
+        android:id="@+id/suggestions_chip"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_toEndOf="@id/suggestions_chip"
+            android:layout_toEndOf="@id/your_friends_chip"
             android:layout_marginStart="10dp"
             android:paddingStart="14dp"
             android:paddingEnd="14dp"
             android:paddingTop="8dp"
             android:paddingBottom="8dp"
             android:background="@drawable/beige_chip"
-            android:text="@string/your_friends"
+            android:text="@string/suggestions"
             android:textColor="@color/black"
             android:textStyle="bold"
             android:textSize="14sp"/>
@@ -263,6 +263,39 @@
                     android:layout_marginTop="10dp"
                     android:layout_marginEnd="18dp"
                     android:background="@color/LightBeige"/>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/closeSection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/closeHeading"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="18dp"
+                    android:layout_marginTop="16dp"
+                    android:fontFamily="@font/logo_text_bold"
+                    android:text="Close friends"
+                    android:textColor="@color/black"
+                    android:textSize="20sp"/>
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/closeList"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:nestedScrollingEnabled="false"/>
+
+                <TextView
+                    android:id="@+id/noCloseFriends"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="18dp"
+                    android:text="No close friends yet"
+                    android:textColor="@color/gray"/>
             </LinearLayout>
 
             <TextView

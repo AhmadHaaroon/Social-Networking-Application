@@ -63,6 +63,7 @@ public class WebAuthFlowTest {
     @Test
     public void signup_profileSetup_thenHome() throws Exception {
         try (ActivityScenario<CreateAccountActivity> ignored = ActivityScenario.launch(CreateAccountActivity.class)) {
+            TestSystemUi.dismissFullscreenHint();
             onView(withId(R.id.etFirstName)).perform(replaceText("Espresso"));
             onView(withId(R.id.etLastName)).perform(replaceText("Tester"));
             onView(withId(R.id.etEmail)).perform(replaceText("signup" + suffix + "@example.com"));
@@ -105,6 +106,7 @@ public class WebAuthFlowTest {
         Api.call("profile/update.php", profile, token);
         Api.call("auth/logout.php", new JSONObject(), token);
         try (ActivityScenario<LoginActivity> ignored = ActivityScenario.launch(LoginActivity.class)) {
+            TestSystemUi.dismissFullscreenHint();
             onView(withId(R.id.textView2)).perform(replaceText(email));
             onView(withId(R.id.textView3)).perform(replaceText(PASSWORD));
             closeSoftKeyboard();

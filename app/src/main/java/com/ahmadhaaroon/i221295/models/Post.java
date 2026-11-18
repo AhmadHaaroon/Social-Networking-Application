@@ -8,6 +8,8 @@ import java.util.List;
 
 @IgnoreExtraProperties
 public class Post {
+    public boolean pending;
+    public String syncError;
     public String id;
     public String uid;
     public String text;

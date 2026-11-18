@@ -23,19 +23,15 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.ValueEventListener;
-import com.ahmadhaaroon.i221295.models.AppNotification;
 import com.ahmadhaaroon.i221295.models.Comment;
 import com.ahmadhaaroon.i221295.models.Post;
 import com.ahmadhaaroon.i221295.ui.AvatarView;
 import com.ahmadhaaroon.i221295.ui.EmojiPicker;
 import com.ahmadhaaroon.i221295.util.Db;
+import com.ahmadhaaroon.i221295.util.Content;
+import com.ahmadhaaroon.i221295.util.ContentJson;
 import com.ahmadhaaroon.i221295.util.Images;
 import com.ahmadhaaroon.i221295.util.MediaUpload;
-import com.ahmadhaaroon.i221295.util.Notifs;
 import com.ahmadhaaroon.i221295.util.PostActions;
 import com.ahmadhaaroon.i221295.util.Reactions;
 import com.ahmadhaaroon.i221295.util.Subs;
@@ -124,66 +120,24 @@ public class CommentsActivity extends AppCompatActivity {
     }
 
     private void listen() {
-        subs.value(Db.posts().child(postId), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                post = s.getValue(Post.class);
-                if (post != null) post.id = postId;
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
-        subs.value(Db.comments(postId), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                all.clear();
-                for (DataSnapshot c : s.getChildren()) {
-                    Comment cm = c.getValue(Comment.class);
-                    if (cm == null) continue;
-                    cm.id = c.getKey();
-                    all.add(cm);
-                }
-                rebuild();
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
-        subs.value(Db.commentLikes(postId), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                likes.clear();
-                for (DataSnapshot c : s.getChildren()) {
-                    Map<String, Boolean> m = new HashMap<>();
-                    for (DataSnapshot u : c.getChildren()) m.put(u.getKey(), true);
-                    likes.put(c.getKey(), m);
-                }
-                rebuild();
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
-        subs.value(Db.reactions(postId), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                bindReactionSummary(s);
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
+        Runnable changed = () -> {
+            post = Content.post(postId);
+            all.clear();
+            all.addAll(Content.comments(postId));
+            likes.clear();
+            likes.putAll(Content.likes());
+            rebuild();
+            bindReactionSummary(Content.reactions(postId));
+        };
+        com.ahmadhaaroon.i221295.util.LocalDb.observe(changed);
+        subs.add(() -> com.ahmadhaaroon.i221295.util.LocalDb.removeObserver(changed));
+        changed.run();
     }
 
-    private void bindReactionSummary(DataSnapshot s) {
+    private void bindReactionSummary(Map<String, String> s) {
         int[] counts = new int[Reactions.KEYS.length];
-        for (DataSnapshot c : s.getChildren()) {
-            int i = Reactions.index(c.getValue(String.class));
+        for (String key : s.values()) {
+            int i = Reactions.index(key);
             if (i >= 0) counts[i]++;
         }
         LinearLayout icons = findViewById(R.id.reactionIcons);
@@ -200,7 +154,7 @@ public class CommentsActivity extends AppCompatActivity {
             if (shown > 0) lp.setMarginStart((int) (-6 * d));
             icons.addView(iv, lp);
         }
-        long total = s.getChildrenCount();
+        long total = s.size();
         ((TextView) findViewById(R.id.reaction_number)).setText(total == 0
                 ? getString(R.string.no_reactions) : PostActions.compact(total));
     }
@@ -292,62 +246,37 @@ public class CommentsActivity extends AppCompatActivity {
     }
 
     private void write(String text, String imageUrl) {
-        DatabaseReference ref = Db.comments(postId).push();
         Comment c = new Comment();
-        c.id = ref.getKey();
+        c.id = java.util.UUID.randomUUID().toString();
+        c.postId = postId;
         c.uid = Db.uid();
         c.text = text.isEmpty() ? null : text;
         c.imageUrl = imageUrl;
         c.parentId = replyParentId;
         c.replyToUid = replyToUid;
         c.timestamp = System.currentTimeMillis();
-        ref.setValue(c).addOnCompleteListener(t -> sending = false);
+        Content.action("comments.create", ContentJson.write(c), () -> {
+            sending = false;
+            input.setText("");
+            pendingImage = null;
+            attachment.setVisibility(View.GONE);
+            clearReply();
+        }, e -> {
+            sending = false;
+            Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
+        });
 
-        String preview = text.isEmpty() ? "sent a photo" : "“" + text + "”";
-        if (replyToUid != null) {
-            Notifs.send(replyToUid, AppNotification.REPLY, postId, "replied to your comment: " + preview);
-        }
-        if (post != null && (replyToUid == null || !replyToUid.equals(post.uid))) {
-            Notifs.send(post.uid, AppNotification.COMMENT, postId, "commented on your post: " + preview);
-        }
-
-        input.setText("");
-        pendingImage = null;
-        attachment.setVisibility(View.GONE);
-        clearReply();
     }
 
     private void toggleLike(Comment c) {
-        String me = Db.uid();
         Map<String, Boolean> m = likes.get(c.id);
-        DatabaseReference ref = Db.commentLikes(postId).child(c.id).child(me);
-        if (m != null && m.containsKey(me)) {
-            ref.removeValue();
-        } else {
-            ref.setValue(true);
-            Notifs.send(c.uid, AppNotification.COMMENT_LIKE, postId, "liked your comment.");
-        }
+        Content.action("comments.like", Content.value(c.id, "liked", m == null || !m.containsKey(Db.uid())));
     }
 
     private void confirmDelete(Comment c) {
-        new AlertDialog.Builder(this)
-                .setTitle("Delete comment?")
-                .setPositiveButton("Delete", (d, w) -> {
-                    Map<String, Object> up = new HashMap<>();
-                    up.put("comments/" + postId + "/" + c.id, null);
-                    up.put("commentLikes/" + postId + "/" + c.id, null);
-                    if (c.parentId == null) {
-                        for (Comment r : all) {
-                            if (c.id.equals(r.parentId)) {
-                                up.put("comments/" + postId + "/" + r.id, null);
-                                up.put("commentLikes/" + postId + "/" + r.id, null);
-                            }
-                        }
-                    }
-                    Db.root().updateChildren(up);
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
+        new AlertDialog.Builder(this).setTitle("Delete comment?")
+                .setPositiveButton("Delete", (d, w) -> Content.action("comments.delete", Content.data(c.id)))
+                .setNegativeButton("Cancel", null).show();
     }
 
     @Override
@@ -423,7 +352,7 @@ public class CommentsActivity extends AppCompatActivity {
                 h.imgCard.setOnClickListener(v -> startActivity(MediaViewerActivity.intent(CommentsActivity.this, one, 0)));
             }
 
-            h.time.setText(TimeFmt.ago(c.timestamp));
+            h.time.setText(TimeFmt.ago(c.timestamp) + (Content.status(c.id).isEmpty() ? "" : " · " + Content.status(c.id)));
             int n = likeCount(c.id);
             Map<String, Boolean> m = likes.get(c.id);
             boolean liked = m != null && m.containsKey(me);

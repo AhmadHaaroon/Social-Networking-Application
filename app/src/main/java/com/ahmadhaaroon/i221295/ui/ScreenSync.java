@@ -46,6 +46,8 @@ public final class ScreenSync {
                 || activity instanceof StartSocialMediaActivity || activity instanceof MyProfileActivity
                 || activity instanceof EditProfileActivity || activity instanceof ProfileActivity
                 || activity instanceof FriendsActivity || activity instanceof SearchActivity
+                || activity instanceof com.ahmadhaaroon.i221295.CommentsActivity
+                || activity instanceof com.ahmadhaaroon.i221295.LikeActivity
                 || activity instanceof MenuActivity || activity instanceof MarketplaceActivity)) return;
         Binding b = BINDINGS.get(activity);
         if (b == null) {
@@ -175,6 +177,7 @@ public final class ScreenSync {
             else if (!SyncStatus.error.isEmpty() && Connection.connected(activity)) text += " · Server unavailable";
             else if (!pending.isEmpty()) text += pending.startsWith("Couldn't") ? " · A change needs attention" : " · Changes pending";
             bar.setText(text);
+            bar.setVisibility(internet ? View.GONE : View.VISIBLE);
             bar.setBackgroundColor(internet ? 0xFFE1F0EC : 0xFFF4E8D6);
             bar.setTextColor(internet ? 0xFF0B5F63 : 0xFF80531C);
             if (refreshing && ((!SyncStatus.running && SyncStatus.completed > refreshGeneration)

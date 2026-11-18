@@ -74,7 +74,7 @@ public class StoryRowAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         View v = h.itemView;
         if (position == 0) {
             ((AvatarView) v.findViewById(R.id.myAvatar)).bind(Db.uid());
-            v.setOnClickListener(x -> NavHelper.pendingFeature(activity));
+            v.setOnClickListener(x -> activity.startActivity(com.ahmadhaaroon.i221295.CameraActivity.forStory(activity)));
             return;
         }
         Group g = groups.get(position - 1);

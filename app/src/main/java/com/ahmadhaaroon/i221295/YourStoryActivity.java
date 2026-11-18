@@ -7,29 +7,19 @@ import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.ValueEventListener;
-import com.ahmadhaaroon.i221295.models.Message;
 import com.ahmadhaaroon.i221295.models.Story;
 import com.ahmadhaaroon.i221295.ui.AvatarView;
-import com.ahmadhaaroon.i221295.ui.FriendPicker;
 import com.ahmadhaaroon.i221295.ui.StoryPlayer;
-import com.ahmadhaaroon.i221295.util.Chats;
 import com.ahmadhaaroon.i221295.util.Db;
-import com.ahmadhaaroon.i221295.util.MediaUpload;
+import com.ahmadhaaroon.i221295.util.Content;
 import com.ahmadhaaroon.i221295.util.TimeFmt;
 import com.ahmadhaaroon.i221295.util.UserCache;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Your own story (screen 12) with who has seen it. Expired stories (older than 24h) are removed
@@ -38,8 +28,9 @@ import java.util.Map;
 public class YourStoryActivity extends AppCompatActivity implements StoryPlayer.Listener {
 
     private StoryPlayer player;
-    private DatabaseReference viewsRef;
-    private ValueEventListener viewsListener;
+    private final Runnable changed = () -> {
+        if (player.current() != null) onShow(player.current(), player.index());
+    };
     private final List<String> viewers = new ArrayList<>();
     private boolean loaded;
 
@@ -68,73 +59,34 @@ public class YourStoryActivity extends AppCompatActivity implements StoryPlayer.
     }
 
     private void load() {
-        String me = Db.uid();
-        Db.stories().child(me).addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                long now = System.currentTimeMillis();
-                List<Story> list = new ArrayList<>();
-                Map<String, Object> expired = new HashMap<>();
-                for (DataSnapshot c : s.getChildren()) {
-                    Story st = c.getValue(Story.class);
-                    if (st == null) continue;
-                    if (!st.isActive(now)) {
-                        expired.put("stories/" + me + "/" + c.getKey(), null);
-                        expired.put("storyViews/" + me + "/" + c.getKey(), null);
-                        MediaUpload.delete(st.mediaUrl);
-                        continue;
-                    }
-                    st.id = c.getKey();
-                    list.add(st);
-                }
-                if (!expired.isEmpty()) Db.root().updateChildren(expired);
-                if (list.isEmpty()) {
-                    Toast.makeText(YourStoryActivity.this, "You have no active story", Toast.LENGTH_SHORT).show();
-                    finish();
-                    return;
-                }
-                list.sort((a, b) -> Long.compare(a.timestamp, b.timestamp));
-                loaded = true;
-                player.setStories(list, list.size() - 1);
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                finish();
-            }
-        });
+        List<Story> list = Content.stories(Db.uid());
+        if (list.isEmpty()) {
+            Toast.makeText(this, "You have no active story", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+        loaded = true;
+        player.setStories(list, list.size() - 1);
     }
 
     @Override
     public void onShow(Story story, int index) {
         String audience = "close".equals(story.audience) ? "Close friends" : "Friends";
-        ((TextView) findViewById(R.id.story_time)).setText(TimeFmt.ago(story.timestamp) + " • " + audience);
+        ((TextView) findViewById(R.id.story_time)).setText(TimeFmt.ago(story.timestamp) + " • " + audience + (Content.status(story.id).isEmpty() ? "" : " · " + Content.status(story.id)));
         watchViews(story);
     }
 
     /** Live "Seen by N" with the first three viewers' avatars. */
     private void watchViews(Story story) {
-        if (viewsRef != null) viewsRef.removeEventListener(viewsListener);
-        viewsRef = Db.storyViews(Db.uid(), story.id);
-        viewsListener = new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                viewers.clear();
-                for (DataSnapshot c : s.getChildren()) viewers.add(c.getKey());
-                ((TextView) findViewById(R.id.seenText)).setText(getString(R.string.seen_by_n, viewers.size()));
-                int[] ids = {R.id.seen1, R.id.seen2, R.id.seen3};
-                for (int i = 0; i < ids.length; i++) {
-                    AvatarView av = findViewById(ids[i]);
-                    av.setVisibility(i < viewers.size() ? View.VISIBLE : View.GONE);
-                    if (i < viewers.size()) av.bind(viewers.get(i));
-                }
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        };
-        viewsRef.addValueEventListener(viewsListener);
+        viewers.clear();
+        viewers.addAll(Content.viewers(story.id));
+        ((TextView) findViewById(R.id.seenText)).setText(getString(R.string.seen_by_n, viewers.size()));
+        int[] ids = {R.id.seen1, R.id.seen2, R.id.seen3};
+        for (int i = 0; i < ids.length; i++) {
+            AvatarView av = findViewById(ids[i]);
+            av.setVisibility(i < viewers.size() ? View.VISIBLE : View.GONE);
+            if (i < viewers.size()) av.bind(viewers.get(i));
+        }
     }
 
     private void showViewers() {
@@ -159,20 +111,7 @@ public class YourStoryActivity extends AppCompatActivity implements StoryPlayer.
     }
 
     private void sendToFriend() {
-        Story s = player.current();
-        if (s == null) return;
-        player.pause();
-        FriendPicker.show(this, "Send story to", uid -> {
-            Message m = new Message();
-            m.type = Message.IMAGE;
-            m.imageUrl = s.isVideo() ? null : s.mediaUrl;
-            m.text = s.text;
-            if (m.imageUrl == null) m.type = Message.TEXT;
-            if (m.text == null && m.imageUrl == null) m.text = "Shared a story";
-            Chats.send(uid, m);
-            Toast.makeText(this, "Sent", Toast.LENGTH_SHORT).show();
-            player.resume();
-        });
+        NavHelper.pendingFeature(this);
     }
 
     private void moreOptions() {
@@ -181,11 +120,7 @@ public class YourStoryActivity extends AppCompatActivity implements StoryPlayer.
         player.pause();
         new AlertDialog.Builder(this)
                 .setItems(new String[]{"Delete this story"}, (d, w) -> {
-                    Map<String, Object> up = new HashMap<>();
-                    up.put("stories/" + Db.uid() + "/" + s.id, null);
-                    MediaUpload.delete(s.mediaUrl);
-                    up.put("storyViews/" + Db.uid() + "/" + s.id, null);
-                    Db.root().updateChildren(up);
+                    Content.action("stories.delete", Content.data(s.id));
                     Toast.makeText(this, "Story deleted", Toast.LENGTH_SHORT).show();
                     finish();
                 })
@@ -200,6 +135,7 @@ public class YourStoryActivity extends AppCompatActivity implements StoryPlayer.
 
     @Override
     protected void onPause() {
+        com.ahmadhaaroon.i221295.util.LocalDb.removeObserver(changed);
         super.onPause();
         if (loaded) player.pause();
     }
@@ -207,6 +143,8 @@ public class YourStoryActivity extends AppCompatActivity implements StoryPlayer.
     @Override
     protected void onResume() {
         super.onResume();
+        com.ahmadhaaroon.i221295.util.LocalDb.observe(changed);
+        com.ahmadhaaroon.i221295.util.Profiles.refresh(this);
         if (loaded) player.resume();
     }
 
@@ -214,6 +152,5 @@ public class YourStoryActivity extends AppCompatActivity implements StoryPlayer.
     protected void onDestroy() {
         super.onDestroy();
         player.release();
-        if (viewsRef != null) viewsRef.removeEventListener(viewsListener);
     }
 }

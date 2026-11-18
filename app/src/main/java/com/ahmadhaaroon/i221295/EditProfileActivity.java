@@ -66,7 +66,7 @@ public class EditProfileActivity extends AppCompatActivity {
                 List<Uri> uris = PictureSendActivity.results(r.getData());
                 if (uris.isEmpty()) return;
                 newCover = uris.get(0);
-                Glide.with(this).load(newCover).centerCrop().into(cover);
+                Glide.with(this).load(newCover).fitCenter().into(cover);
             });
 
     public static Intent setup(Context c) {
@@ -103,10 +103,10 @@ public class EditProfileActivity extends AppCompatActivity {
 
         NavHelper.click(this, R.id.btn_cancel, this::finish);
         NavHelper.click(this, R.id.btn_save, this::save);
-        NavHelper.click(this, R.id.btn_edit_picture, () -> pickAvatar.launch(PictureSendActivity.pick(this, false, false)));
-        NavHelper.click(this, R.id.avatar, () -> pickAvatar.launch(PictureSendActivity.pick(this, false, false)));
-        NavHelper.click(this, R.id.btn_edit_cover, () -> pickCover.launch(PictureSendActivity.pick(this, false, false)));
-        NavHelper.click(this, R.id.btn_cover_camera, () -> pickCover.launch(PictureSendActivity.pick(this, false, false)));
+        NavHelper.click(this, R.id.btn_edit_picture, () -> pickAvatar.launch(PictureSendActivity.profile(this, false)));
+        NavHelper.click(this, R.id.avatar, () -> pickAvatar.launch(PictureSendActivity.profile(this, false)));
+        NavHelper.click(this, R.id.btn_edit_cover, () -> pickCover.launch(PictureSendActivity.profile(this, true)));
+        NavHelper.click(this, R.id.btn_cover_camera, () -> pickCover.launch(PictureSendActivity.profile(this, true)));
         NavHelper.click(this, R.id.field_gender, this::pickGender);
 
         load();
@@ -143,7 +143,7 @@ public class EditProfileActivity extends AppCompatActivity {
         tvEmail.setText(current.email);
         tvGender.setText(current.gender == null ? "Male" : current.gender);
         avatar.setUser(current);
-        Images.load(cover, current.coverUrl);
+        Images.fit(cover, current.coverUrl);
     }
 
     @Override
@@ -194,7 +194,7 @@ public class EditProfileActivity extends AppCompatActivity {
                 newAvatar = null;
                 newCover = null;
                 avatar.setUser(current);
-                Images.load(cover, current.coverUrl);
+                Images.fit(cover, current.coverUrl);
             } else {
                 Profiles.refresh(this);
             }

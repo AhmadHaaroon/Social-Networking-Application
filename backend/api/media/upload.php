@@ -5,10 +5,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') fail('Use POST.', 405);
 $id = field($_POST, 'id', 36, true);
 if (!preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/', $id)) fail('Invalid media ID.');
 $file = $_FILES['file'] ?? null;
-if (!$file || $file['error'] !== UPLOAD_ERR_OK) fail('The image could not be uploaded. Check the server upload limit.', 413);
-if ($file['size'] > 10 * 1024 * 1024) fail('Image exceeds 10 MB.', 413);
+if (!$file || $file['error'] !== UPLOAD_ERR_OK) fail('The media could not be uploaded. Check the server upload limit.', 413);
+if ($file['size'] > 10 * 1024 * 1024) fail('Media exceeds 10 MB.', 413);
 $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
-if (!in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true) || !getimagesize($file['tmp_name'])) fail('Choose a supported image.');
+if (!in_array($mime, ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm', 'video/3gpp'], true)) fail('Choose a supported image or video.');
+if (str_starts_with($mime, 'image/') && !getimagesize($file['tmp_name'])) fail('Choose a supported image.');
 $hash = hash_file('sha256', $file['tmp_name']);
 $db = db();
 $db->beginTransaction();
@@ -23,7 +24,7 @@ try {
     }
     $dir = dirname(__DIR__, 2) . '/uploads/' . $me;
     if (!is_dir($dir) && !mkdir($dir, 0750, true)) throw new RuntimeException('Cannot create uploads directory.');
-    if (!move_uploaded_file($file['tmp_name'], $dir . '/' . $id)) throw new RuntimeException('Cannot save uploaded image.');
+    if (!move_uploaded_file($file['tmp_name'], $dir . '/' . $id)) throw new RuntimeException('Cannot save uploaded media.');
     $db->prepare('INSERT INTO media VALUES (?, ?, ?, ?, ?, ?)')->execute([$id, $me, $mime, $hash, $file['size'], now_ms()]);
     $db->commit();
     respond(['ref' => 'media:' . $id]);
