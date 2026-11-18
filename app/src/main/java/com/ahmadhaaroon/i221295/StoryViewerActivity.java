@@ -106,11 +106,24 @@ public class StoryViewerActivity extends AppCompatActivity implements StoryPlaye
     }
 
     private void sendReply() {
-        NavHelper.pendingFeature(this);
+        String text = reply.getText().toString().trim();
+        if (text.isEmpty()) return;
+        com.ahmadhaaroon.i221295.models.Message m = com.ahmadhaaroon.i221295.util.Chats.text(text);
+        m.type = com.ahmadhaaroon.i221295.models.Message.STORY_REPLY;
+        com.ahmadhaaroon.i221295.util.Chats.send(
+                owner,
+                m,
+                () -> {
+                    reply.setText("");
+                    reply.clearFocus();
+                    player.resume();
+                });
     }
 
     private void react(String emoji) {
-        NavHelper.pendingFeature(this);
+        com.ahmadhaaroon.i221295.models.Message m = com.ahmadhaaroon.i221295.util.Chats.text(emoji);
+        m.type = com.ahmadhaaroon.i221295.models.Message.STORY_REPLY;
+        com.ahmadhaaroon.i221295.util.Chats.send(owner, m);
     }
 
     @Override

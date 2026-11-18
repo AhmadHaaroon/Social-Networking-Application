@@ -71,7 +71,8 @@ public class ProfileActivity extends AppCompatActivity {
 
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
         findViewById(R.id.btnSearch).setOnClickListener(v -> startActivity(new Intent(this, SearchActivity.class)));
-        findViewById(R.id.btnMessage).setOnClickListener(v -> NavHelper.pendingFeature(this));
+        findViewById(R.id.btnMessage)
+                .setOnClickListener(v -> startActivity(ChatActivity.intent(this, uid)));
         findViewById(R.id.btnAdd).setOnClickListener(v -> onAddClicked());
         findViewById(R.id.btnMore).setOnClickListener(v -> showMore());
         findViewById(R.id.btnSeeAll).setOnClickListener(v -> {
@@ -198,7 +199,7 @@ public class ProfileActivity extends AppCompatActivity {
             actions.add(() -> Friends.decline(uid));
         }
         items.add("Message");
-        actions.add(() -> NavHelper.pendingFeature(this));
+        actions.add(() -> startActivity(ChatActivity.intent(this, uid)));
         new AlertDialog.Builder(this)
                 .setItems(items.toArray(new String[0]), (d, w) -> actions.get(w).run())
                 .show();

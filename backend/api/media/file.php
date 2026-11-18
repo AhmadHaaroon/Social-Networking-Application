@@ -27,11 +27,16 @@ if ($media['owner_id'] !== $me) {
         $q->execute(['media:'.$id,now_ms()]);
         foreach ($q as $story) if (can_story($story,$me)) { $allowed = true; break; }
     }
+    if (!$allowed) {
+        $q = db()->prepare("SELECT id FROM messages WHERE (sender_id=? OR recipient_id=?) AND JSON_UNQUOTE(JSON_EXTRACT(body, '$.imageUrl'))=? LIMIT 1");
+        $q->execute([$me,$me,'media:'.$id]); $allowed=(bool)$q->fetch();
+    }
     if (!$allowed) fail('This media is private or has expired.', 403);
 }
 $path = dirname(__DIR__, 2) . '/uploads/' . $media['owner_id'] . '/' . $id;
 if (!is_file($path)) fail('Image not found.', 404);
 header('Content-Type: ' . $media['mime']);
 header('X-Content-Type-Options: nosniff');
+header('Content-Disposition: attachment; filename="'.$id.'"');
 header('Content-Length: ' . filesize($path));
 readfile($path);

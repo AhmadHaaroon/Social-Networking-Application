@@ -1,5 +1,5 @@
 <?php
-require dirname(__DIR__, 2) . '/includes/social.php';
+require dirname(__DIR__, 2) . '/includes/chat.php';
 $d = input();
 $me = authenticated()['id'];
 $other = field($d, 'other', 36, true);
@@ -62,6 +62,8 @@ try {
     }
     $db->prepare('INSERT INTO action_receipts VALUES (?, ?, ?, ?, ?, ?)')
         ->execute([$me, $action, 'friends.action', $hash, '{"ok":true}', now_ms()]);
+    if ($kind === 'send' && !$f) notify_user($other,$me,'friend_request','sent you a friend request.');
+    if ($kind === 'accept' && !$accepted) notify_user($other,$me,'friend_accept','accepted your friend request.');
     $db->commit();
     respond(['ok' => true]);
 } catch (Throwable $e) {

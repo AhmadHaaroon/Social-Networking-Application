@@ -1,15 +1,14 @@
 package com.ahmadhaaroon.i221295.models;
 
-import com.google.firebase.database.Exclude;
-import com.google.firebase.database.IgnoreExtraProperties;
 
 import java.util.HashMap;
 import java.util.Map;
 
-@IgnoreExtraProperties
 public class Message {
     public static final String TEXT = "text";
     public static final String IMAGE = "image";
+    public static final String VIDEO = "video";
+    public static final String FILE = "file";
     public static final String POST = "post";
     public static final String SYSTEM = "system";
     public static final String CALL = "call";
@@ -20,6 +19,11 @@ public class Message {
 
     public String id;
     public String senderId;
+    public String recipientId;
+    public String fileName;
+    public String mime;
+    public boolean pending;
+    public String syncError;
     public String type = TEXT;
     public String text;
     public String imageUrl;
@@ -37,7 +41,6 @@ public class Message {
     public Message() {
     }
 
-    @Exclude
     public boolean canModify(String myUid, long now) {
         return myUid != null && myUid.equals(senderId) && !deleted
                 && !SYSTEM.equals(type) && !CALL.equals(type)

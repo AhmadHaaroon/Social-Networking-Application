@@ -20,7 +20,13 @@ public final class ContentJson {
             for (Field f : model.getClass().getFields()) {
                 if (Modifier.isStatic(f.getModifiers())) continue;
                 Object value = f.get(model);
-                out.put(f.getName(), value instanceof List ? new JSONArray((List<?>) value) : value == null ? JSONObject.NULL : value);
+                out.put(
+                        f.getName(),
+                        value instanceof java.util.Map
+                                ? new JSONObject((java.util.Map<?, ?>) value)
+                                : value instanceof List
+                                        ? new JSONArray((List<?>) value)
+                                        : value == null ? JSONObject.NULL : value);
             }
             return out;
         } catch (Exception e) {
@@ -39,7 +45,18 @@ public final class ContentJson {
                 else if (f.getType() == int.class) f.setInt(out, json.getInt(key));
                 else if (f.getType() == float.class) f.setFloat(out, (float) json.getDouble(key));
                 else if (f.getType() == boolean.class) f.setBoolean(out, json.getBoolean(key));
-                else if (List.class.isAssignableFrom(f.getType())) {
+                else if (java.util.Map.class.isAssignableFrom(f.getType())) {
+                    java.util.Map<String, Boolean> map = new java.util.HashMap<>();
+                    JSONObject values = json.optJSONObject(key);
+                    if (values != null) {
+                        java.util.Iterator<String> keys = values.keys();
+                        while (keys.hasNext()) {
+                            String k = keys.next();
+                            map.put(k, values.optBoolean(k));
+                        }
+                    }
+                    f.set(out, map);
+                } else if (List.class.isAssignableFrom(f.getType())) {
                     List<String> list = new ArrayList<>();
                     JSONArray values = json.getJSONArray(key);
                     for (int i = 0; i < values.length(); i++) list.add(values.getString(i));

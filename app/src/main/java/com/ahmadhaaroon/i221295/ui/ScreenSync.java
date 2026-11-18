@@ -42,13 +42,21 @@ public final class ScreenSync {
     }
 
     public static void start(Activity activity) {
-        if (!(activity instanceof LoginActivity || activity instanceof CreateAccountActivity
-                || activity instanceof StartSocialMediaActivity || activity instanceof MyProfileActivity
-                || activity instanceof EditProfileActivity || activity instanceof ProfileActivity
-                || activity instanceof FriendsActivity || activity instanceof SearchActivity
+        if (!(activity instanceof LoginActivity
+                || activity instanceof CreateAccountActivity
+                || activity instanceof StartSocialMediaActivity
+                || activity instanceof MyProfileActivity
+                || activity instanceof EditProfileActivity
+                || activity instanceof ProfileActivity
+                || activity instanceof FriendsActivity
+                || activity instanceof SearchActivity
                 || activity instanceof com.ahmadhaaroon.i221295.CommentsActivity
                 || activity instanceof com.ahmadhaaroon.i221295.LikeActivity
-                || activity instanceof MenuActivity || activity instanceof MarketplaceActivity)) return;
+                || activity instanceof com.ahmadhaaroon.i221295.ChatActivity
+                || activity instanceof com.ahmadhaaroon.i221295.ChatsActivity
+                || activity instanceof com.ahmadhaaroon.i221295.NotificationsActivity
+                || activity instanceof MenuActivity
+                || activity instanceof MarketplaceActivity)) return;
         Binding b = BINDINGS.get(activity);
         if (b == null) {
             b = new Binding(activity);

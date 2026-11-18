@@ -1,9 +1,7 @@
 package com.ahmadhaaroon.i221295.models;
 
-import com.google.firebase.database.IgnoreExtraProperties;
 
 /** One row of userChats/{uid}/{otherUid}. */
-@IgnoreExtraProperties
 public class ChatSummary {
     public String chatId;
     public String otherUid;

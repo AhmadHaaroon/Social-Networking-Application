@@ -56,7 +56,10 @@ import java.util.concurrent.TimeUnit;
 public class WebContentFlowTest {
 
     @Rule
-    public GrantPermissionRule notificationPermission = GrantPermissionRule.grant(android.Manifest.permission.POST_NOTIFICATIONS);
+    public GrantPermissionRule notificationPermission =
+            GrantPermissionRule.grant(
+                    android.Manifest.permission.POST_NOTIFICATIONS,
+                    android.Manifest.permission.READ_MEDIA_IMAGES);
 
     private Context context;
     private boolean hadWifi, hadData;
@@ -201,6 +204,80 @@ public class WebContentFlowTest {
             }
         }
         source.recycle(); file.delete();
+    }
+
+    @Test
+    public void offlineMessage_reconnectsWithoutDuplicates_andEditsThroughPhp() throws Exception {
+        String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        JSONObject receiver =
+                Api.call(
+                        "auth/signup.php",
+                        new JSONObject()
+                                .put("email", suffix + "@example.com")
+                                .put("password", "ContentTest42!")
+                                .put("firstName", "Receiver")
+                                .put("lastName", "Test")
+                                .put("birthday", "2004-01-01")
+                                .put("gender", "Custom"),
+                        null);
+        String other = receiver.getJSONObject("user").getString("uid"),
+                otherToken = receiver.getString("token");
+        try {
+            Api.call(
+                    "profile/update.php",
+                    new JSONObject()
+                            .put("actionId", UUID.randomUUID().toString())
+                            .put("username", suffix)
+                            .put("name", "Receiver Test")
+                            .put("bio", "Chat test")
+                            .put("gender", "Custom"),
+                    otherToken);
+            synchronized (Profiles.LOCK) {
+                LocalDb.get().acceptSocial(Api.call("social/state.php", null, token));
+            }
+            shell("svc data disable");
+            shell("svc wifi disable");
+            await(() -> !Connection.connected(context));
+            try (ActivityScenario<ChatActivity> scenario =
+                    ActivityScenario.launch(ChatActivity.intent(context, other))) {
+                TestSystemUi.dismissFullscreenHint();
+                onView(withId(R.id.etMsg)).perform(replaceText("Offline chat message"));
+                closeSoftKeyboard();
+                onView(withId(R.id.btnSend)).perform(click());
+                await(() -> !com.ahmadhaaroon.i221295.util.Chats.messages(other).isEmpty());
+                assertTrue(com.ahmadhaaroon.i221295.util.Chats.messages(other).get(0).pending);
+                shell("svc wifi enable");
+                await(() -> Connection.connected(context));
+                await(() -> LocalDb.get().status(WebSession.uid()).isEmpty());
+                com.ahmadhaaroon.i221295.models.Message message =
+                        com.ahmadhaaroon.i221295.util.Chats.messages(other).get(0);
+                assertFalse(message.pending);
+                JSONArray received =
+                        Api.call("social/state.php", null, otherToken)
+                                .getJSONObject("content")
+                                .getJSONArray("messages");
+                assertEquals(1, count(received, message.id));
+                com.ahmadhaaroon.i221295.util.Chats.edit(other, message, "Edited chat message");
+                await(() -> {
+                    com.ahmadhaaroon.i221295.models.Message current =
+                            com.ahmadhaaroon.i221295.util.Chats.messages(other).get(0);
+                    return "Edited chat message".equals(current.text)
+                            && current.edited
+                            && !current.pending
+                            && LocalDb.get().status(WebSession.uid()).isEmpty();
+                });
+                JSONObject edited =
+                        Api.call("social/state.php", null, otherToken)
+                                .getJSONObject("content")
+                                .getJSONArray("messages")
+                                .getJSONObject(0);
+                assertEquals("Edited chat message", edited.getString("text"));
+            }
+        } finally {
+            shell("svc wifi enable");
+            await(() -> Connection.connected(context));
+            Api.call("auth/logout.php", new JSONObject(), otherToken);
+        }
     }
 
     private static PhotoCropView findCrop(android.view.View view) {

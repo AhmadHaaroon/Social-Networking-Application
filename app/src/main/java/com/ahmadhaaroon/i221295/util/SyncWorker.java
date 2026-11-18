@@ -71,7 +71,22 @@ public class SyncWorker extends Worker {
                         boolean contentAction = action.has("data");
                         if (contentAction) MediaFiles.uploadContent(action.getJSONObject("data"), token);
                         else if (!friendAction) MediaFiles.uploadProfile(action, token);
-                        JSONObject response = Api.call(contentAction ? "content/action.php" : friendAction ? "friends/action.php" : "profile/update.php", action, token);
+                        String operation = action.optString("operation");
+                        boolean chatAction =
+                                operation.startsWith("messages.")
+                                        || operation.startsWith("chat.")
+                                        || operation.startsWith("notifications.");
+                        JSONObject response =
+                                Api.call(
+                                        contentAction
+                                                ? (chatAction
+                                                        ? "chat/action.php"
+                                                        : "content/action.php")
+                                                : friendAction
+                                                        ? "friends/action.php"
+                                                        : "profile/update.php",
+                                        action,
+                                        token);
                         if (friendAction || contentAction) response = Api.call("social/state.php", null, token);
                         synchronized (Profiles.LOCK) {
                             if (!token.equals(WebSession.token())) return Result.success();

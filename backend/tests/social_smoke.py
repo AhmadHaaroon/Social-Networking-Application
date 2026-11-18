@@ -93,7 +93,8 @@ def main():
         ref = upload(a, media_id, image)['ref']
         assert upload(a, media_id, image)['ref'] == ref
         upload(b, media_id, image, expected=409)
-        upload(a, str(uuid.uuid4()), b'not an image', expected=400)
+        attachment = upload(a, str(uuid.uuid4()), b'not an image')['ref']
+        call('profile/update.php', dict(profile, actionId=str(uuid.uuid4()), photoUrl=attachment), a['token'], expected=409)
         download(media_id, expected=401)
         download(media_id, b['token'], expected=403)
         assert download(media_id, a['token']) == image

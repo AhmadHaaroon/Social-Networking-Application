@@ -116,3 +116,40 @@ CREATE TABLE IF NOT EXISTS story_views (
 ) ENGINE=InnoDB;
 CREATE TABLE IF NOT EXISTS content_lock (id INT PRIMARY KEY) ENGINE=InnoDB;
 INSERT IGNORE INTO content_lock VALUES (1);
+
+CREATE TABLE IF NOT EXISTS messages (
+    id CHAR(36) PRIMARY KEY,
+    sender_id CHAR(36) NOT NULL,
+    recipient_id CHAR(36) NOT NULL,
+    body LONGTEXT NOT NULL,
+    created_at BIGINT NOT NULL,
+    FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (recipient_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX (recipient_id, created_at), INDEX (sender_id, created_at)
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS chat_reads (
+    owner_id CHAR(36) NOT NULL, other_id CHAR(36) NOT NULL,
+    read_at BIGINT NOT NULL DEFAULT 0, hidden_at BIGINT NOT NULL DEFAULT 0, typing_until BIGINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (owner_id, other_id),
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (other_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS calls (
+    id CHAR(36) PRIMARY KEY, caller_id CHAR(36) NOT NULL, callee_id CHAR(36) NOT NULL,
+    body LONGTEXT NOT NULL, updated_at BIGINT NOT NULL,
+    FOREIGN KEY (caller_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (callee_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS notifications (
+    id CHAR(36) PRIMARY KEY, owner_id CHAR(36) NOT NULL, body LONGTEXT NOT NULL,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS devices (
+    token VARCHAR(512) PRIMARY KEY, owner_id CHAR(36) NOT NULL, session_hash CHAR(64) NOT NULL,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS push_outbox (
+    id CHAR(36) PRIMARY KEY, owner_id CHAR(36) NOT NULL, body LONGTEXT NOT NULL,
+    created_at BIGINT NOT NULL, attempts INT NOT NULL DEFAULT 0,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;

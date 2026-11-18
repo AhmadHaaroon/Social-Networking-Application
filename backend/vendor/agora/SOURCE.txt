@@ -1,0 +1,2 @@
+AgoraIO/Tools: https://github.com/AgoraIO/Tools/tree/master/DynamicKey/AgoraDynamicKey/php/src
+Retrieved 2026-11-18. Only require_once paths changed to use __DIR__.

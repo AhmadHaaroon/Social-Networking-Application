@@ -12,26 +12,34 @@ import com.ahmadhaaroon.i221295.util.Db;
 import java.util.Map;
 
 /**
- * Receives the FCM data messages sent from the other phone by PushSender:
- *   type=message     a new chat message (title = sender name, body = text)
- *   type=screenshot  the other person screenshotted your chat
- *   type=call        an incoming Agora call
- *   type=friend_request
- * Data-only messages are used so the app controls how the notification looks in both the
- * foreground and the background.
+ * Receives FCM data messages sent by the PHP backend: type=message a new chat message (title =
+ * sender name, body = text) type=screenshot the other person screenshotted your chat type=call an
+ * incoming Agora call type=friend_request Data-only messages are used so the app controls how the
+ * notification looks in both the foreground and the background.
  */
 public class KinnectMessagingService extends FirebaseMessagingService {
 
     @Override
     public void onNewToken(@NonNull String token) {
         getSharedPreferences("kinnect_device", MODE_PRIVATE).edit().putString("fcm_token", token).apply();
+        com.ahmadhaaroon.i221295.util.Realtime.registerDevice();
     }
 
     @Override
     public void onMessageReceived(@NonNull RemoteMessage message) {
         Map<String, String> d = message.getData();
+        if (!com.ahmadhaaroon.i221295.util.WebSession.valid() || !Db.uid().equals(d.get("toUid")))
+            return;
+        com.ahmadhaaroon.i221295.util.SyncWorker.retryNow(this);
         String type = d.get("type");
         if (type == null) return;
+        String event = d.get("notificationId");
+        if (event != null) {
+            android.content.SharedPreferences seen =
+                    getSharedPreferences("received_push", MODE_PRIVATE);
+            if (seen.contains(event)) return;
+            seen.edit().putLong(event, System.currentTimeMillis()).apply();
+        }
         String from = d.get("fromUid");
         String title = d.get("title") == null ? "Kinnect" : d.get("title");
         String body = d.get("body") == null ? "" : d.get("body");

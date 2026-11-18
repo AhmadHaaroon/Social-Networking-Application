@@ -1,4 +1,3 @@
 <?php
-require dirname(__DIR__, 2) . '/includes/content.php';
-$user = authenticated();
-respond(array_merge(social_state($user['id']), ['content'=>content_state($user['id'])]));
+require dirname(__DIR__, 2) . '/includes/chat.php';
+respond(full_state(authenticated()['id']));

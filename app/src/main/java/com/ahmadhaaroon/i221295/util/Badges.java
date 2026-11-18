@@ -1,82 +1,64 @@
 package com.ahmadhaaroon.i221295.util;
-
 import android.view.View;
 import android.widget.TextView;
 
-import androidx.annotation.NonNull;
-
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.ValueEventListener;
-import com.ahmadhaaroon.i221295.models.AppNotification;
-import com.ahmadhaaroon.i221295.models.ChatSummary;
-
-/** Live red counters on the Messenger and Notifications icons. */
+/** Counters share the same local snapshots as their screens. */
 public final class Badges {
+    private Badges() {}
 
-    private Badges() {
+    private static void watch(
+            Subs subs, TextView badge, java.util.concurrent.Callable<Integer> count) {
+        if (badge == null) return;
+        Runnable changed =
+                () -> {
+                    try {
+                        int n = count.call();
+                        badge.setVisibility(n > 0 ? View.VISIBLE : View.GONE);
+                        badge.setText(n > 9 ? "9+" : String.valueOf(n));
+                    } catch (Exception ignored) {
+                    }
+                };
+        LocalDb.observe(changed);
+        subs.add(() -> LocalDb.removeObserver(changed));
+        changed.run();
     }
 
-    /** Number of conversations with unread messages. */
     public static void messages(Subs subs, TextView badge) {
-        String me = Db.uid();
-        if (me == null || badge == null) return;
-        subs.value(Db.userChats(me), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                int n = 0;
-                for (DataSnapshot c : s.getChildren()) {
-                    ChatSummary cs = c.getValue(ChatSummary.class);
-                    if (cs != null && cs.unread > 0) n++;
-                }
-                show(badge, n);
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
+        watch(
+                subs,
+                badge,
+                () -> {
+                    int n = 0;
+                    for (com.ahmadhaaroon.i221295.models.ChatSummary c : Chats.summaries())
+                        if (c.unread > 0) n++;
+                    return n;
+                });
     }
 
-    /** Unread in-app notifications plus pending friend requests. */
     public static void notifications(Subs subs, TextView badge) {
-        String me = Db.uid();
-        if (me == null || badge == null) return;
-        subs.value(Db.notifications(me), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                int n = 0;
-                for (DataSnapshot c : s.getChildren()) {
-                    AppNotification an = c.getValue(AppNotification.class);
-                    if (an != null && !an.read) n++;
-                }
-                show(badge, n);
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
+        watch(
+                subs,
+                badge,
+                () -> {
+                    int n = 0;
+                    for (org.json.JSONObject r : LocalDb.get().content("notifications"))
+                        if (!r.optBoolean("read")) n++;
+                    return n;
+                });
     }
 
-    /** Pending incoming friend requests (Friends tab). */
     public static void requests(Subs subs, TextView badge) {
-        String me = Db.uid();
-        if (me == null || badge == null) return;
-        subs.value(Db.friendRequests(me), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                show(badge, (int) s.getChildrenCount());
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
-    }
-
-    private static void show(TextView badge, int n) {
-        badge.setVisibility(n > 0 ? View.VISIBLE : View.GONE);
-        badge.setText(n > 9 ? "9+" : String.valueOf(n));
+        watch(
+                subs,
+                badge,
+                () -> {
+                    int n = 0;
+                    for (org.json.JSONObject r : LocalDb.get().relations())
+                        if ("pending".equals(r.optString("state"))
+                                && !Db.uid().equals(r.optString("requester"))
+                                && (Db.uid().equals(r.optString("a"))
+                                        || Db.uid().equals(r.optString("b")))) n++;
+                    return n;
+                });
     }
 }

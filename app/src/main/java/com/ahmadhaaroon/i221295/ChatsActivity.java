@@ -17,9 +17,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.ValueEventListener;
 import com.ahmadhaaroon.i221295.models.ChatSummary;
 import com.ahmadhaaroon.i221295.models.User;
 import com.ahmadhaaroon.i221295.ui.AvatarView;
@@ -36,8 +33,8 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Chats (screen 20): every conversation from userChats/{me}, newest first, with the last
- * message, time, unread dot and a live green dot for people who are online.
+ * Chats (screen 20): every cached conversation, newest first, with the last message, time, unread
+ * dot and a live green dot for people who are online.
  */
 public class ChatsActivity extends AppCompatActivity {
 
@@ -87,58 +84,28 @@ public class ChatsActivity extends AppCompatActivity {
             }
         });
 
-        subs.value(Db.userChats(me).orderByChild("timestamp"), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                chats.clear();
-                for (DataSnapshot c : s.getChildren()) {
-                    ChatSummary cs = c.getValue(ChatSummary.class);
-                    if (cs == null) continue;
-                    cs.otherUid = c.getKey();
-                    chats.add(0, cs);
-                    watchPresence(cs.otherUid);
-                }
-                filter();
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
-        subs.value(Db.friends(me), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                friends.clear();
-                for (DataSnapshot c : s.getChildren()) {
-                    friends.add(c.getKey());
-                    watchPresence(c.getKey());
-                }
-                refreshActive();
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
-    }
-
-    /** Live users/{uid}/online for the green dots. */
-    private void watchPresence(String uid) {
-        if (presenceRemovers.containsKey(uid)) return;
-        ValueEventListener l = new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                online.put(uid, Boolean.TRUE.equals(s.getValue(Boolean.class)));
-                refreshActive();
-                chatAdapter.notifyDataSetChanged();
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        };
-        Db.user(uid).child("online").addValueEventListener(l);
-        presenceRemovers.put(uid, () -> Db.user(uid).child("online").removeEventListener(l));
+        Runnable changed =
+                () -> {
+                    chats.clear();
+                    chats.addAll(com.ahmadhaaroon.i221295.util.Chats.summaries());
+                    friends.clear();
+                    friends.addAll(com.ahmadhaaroon.i221295.util.People.friends(Db.uid()));
+                    online.clear();
+                    for (String uid : friends) {
+                        User u = UserCache.peek(uid);
+                        online.put(uid, u != null && u.online);
+                    }
+                    for (ChatSummary c : chats) {
+                        User u = UserCache.peek(c.otherUid);
+                        online.put(c.otherUid, u != null && u.online);
+                    }
+                    filter();
+                    refreshActive();
+                };
+        com.ahmadhaaroon.i221295.util.LocalDb.observe(changed);
+        subs.add(() -> com.ahmadhaaroon.i221295.util.LocalDb.removeObserver(changed));
+        changed.run();
+        com.ahmadhaaroon.i221295.util.Profiles.refresh(this);
     }
 
     private void refreshActive() {
@@ -203,8 +170,9 @@ public class ChatsActivity extends AppCompatActivity {
             v.setOnClickListener(x -> startActivity(ChatActivity.intent(ChatsActivity.this, cs.otherUid)));
             v.setOnLongClickListener(x -> {
                 new AlertDialog.Builder(ChatsActivity.this)
-                        .setItems(new String[]{"Delete conversation"}, (d, w) ->
-                                Db.userChats(Db.uid()).child(cs.otherUid).removeValue())
+                        .setItems(
+                                new String[] {"Delete conversation"},
+                                (d, w) -> com.ahmadhaaroon.i221295.util.Chats.hide(cs.otherUid))
                         .show();
                 return true;
             });

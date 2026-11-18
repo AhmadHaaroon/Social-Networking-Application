@@ -102,7 +102,7 @@ function public_user(array $row): array {
     $u['usernameLower'] = $u['username'];
     $u['profileComplete'] = (bool) $row['profile_complete'];
     $u['createdAt'] = (int) $row['created_at'];
-    $u['online'] = (bool) $row['online'];
+    $u['online'] = (bool) $row['online'] && (int)$row['last_seen'] > now_ms() - 15000;
     $u['lastSeen'] = (int) $row['last_seen'];
     return $u;
 }

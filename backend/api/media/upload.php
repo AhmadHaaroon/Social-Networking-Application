@@ -8,7 +8,7 @@ $file = $_FILES['file'] ?? null;
 if (!$file || $file['error'] !== UPLOAD_ERR_OK) fail('The media could not be uploaded. Check the server upload limit.', 413);
 if ($file['size'] > 10 * 1024 * 1024) fail('Media exceeds 10 MB.', 413);
 $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
-if (!in_array($mime, ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm', 'video/3gpp'], true)) fail('Choose a supported image or video.');
+if (!$mime) $mime = 'application/octet-stream';
 if (str_starts_with($mime, 'image/') && !getimagesize($file['tmp_name'])) fail('Choose a supported image.');
 $hash = hash_file('sha256', $file['tmp_name']);
 $db = db();

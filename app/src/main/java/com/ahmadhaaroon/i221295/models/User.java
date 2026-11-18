@@ -1,8 +1,6 @@
 package com.ahmadhaaroon.i221295.models;
 
-import com.google.firebase.database.IgnoreExtraProperties;
 
-@IgnoreExtraProperties
 public class User {
     public String uid;
     public String name;

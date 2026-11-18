@@ -34,6 +34,8 @@ public class KinnectApp extends Application {
         People.init(this);
         com.ahmadhaaroon.i221295.util.Content.init(this);
         MediaFiles.init(this);
+        com.ahmadhaaroon.i221295.util.Realtime.init(this);
+        com.ahmadhaaroon.i221295.services.CallWatcher.start(this);
         PushNotifier.createChannels(this);
         SyncWorker.schedule(this);
         com.ahmadhaaroon.i221295.util.Connection.watch(this);
@@ -78,6 +80,7 @@ public class KinnectApp extends Application {
     }
 
     private void onForegroundChanged(boolean fg) {
+        com.ahmadhaaroon.i221295.util.Realtime.foreground(fg);
         if (fg) SyncWorker.schedule(this);
     }
 

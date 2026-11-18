@@ -1,9 +1,7 @@
 package com.ahmadhaaroon.i221295.models;
 
-import com.google.firebase.database.IgnoreExtraProperties;
 
 /** Signalling record written to calls/{calleeUid} and copied to callLogs/{uid}/{callId}. */
-@IgnoreExtraProperties
 public class CallInfo {
     public static final String RINGING = "ringing";
     public static final String ACCEPTED = "accepted";

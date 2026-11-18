@@ -1,65 +1,43 @@
 package com.ahmadhaaroon.i221295.services;
-
 import android.content.Context;
 import android.content.Intent;
-
-import androidx.annotation.NonNull;
-
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.ValueEventListener;
 import com.ahmadhaaroon.i221295.CallActivity;
+import com.ahmadhaaroon.i221295.KinnectApp;
 import com.ahmadhaaroon.i221295.models.CallInfo;
-import com.ahmadhaaroon.i221295.util.Db;
+import com.ahmadhaaroon.i221295.util.*;
 
-/**
- * Listens on calls/{myUid} while the app is open and shows the incoming-call screen as soon as
- * someone rings. When the app is in the background the FCM push sent by the caller (PushSender) does
- * the same job (see KinnectMessagingService).
- */
+/** Incoming calls are delivered by the server stream, with FCM covering the background. */
 public final class CallWatcher {
+    public static final long RING_TIMEOUT_MS = 45000;
+    private static Runnable observer;
+    private static final java.util.Set<String> shown = new java.util.HashSet<>();
 
-    /** Calls older than this are treated as missed and never ring. */
-    public static final long RING_TIMEOUT_MS = 45_000;
-
-    private static DatabaseReference ref;
-    private static ValueEventListener listener;
-    private static String watchingUid;
-
-    private CallWatcher() {
-    }
+    private CallWatcher() {}
 
     public static synchronized void start(Context context) {
-        String me = Db.uid();
-        if (me == null || me.equals(watchingUid)) return;
-        stop();
+        if (observer != null) return;
         Context app = context.getApplicationContext();
-        watchingUid = me;
-        ref = Db.calls(me);
-        listener = new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                CallInfo call = snapshot.getValue(CallInfo.class);
-                if (call == null || !CallInfo.RINGING.equals(call.status)) return;
-                if (System.currentTimeMillis() - call.timestamp > RING_TIMEOUT_MS) return;
-                if (CallActivity.isShowing(call.callId)) return;
-                Intent i = CallActivity.incoming(app, call);
-                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                app.startActivity(i);
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        };
-        ref.addValueEventListener(listener);
+        observer =
+                () -> {
+                    if (!KinnectApp.isInForeground() || Db.uid() == null) return;
+                    for (org.json.JSONObject r : LocalDb.get().content("calls")) {
+                        CallInfo c = ContentJson.read(r, CallInfo.class);
+                        if (Db.uid().equals(c.calleeUid)
+                                && CallInfo.RINGING.equals(c.status)
+                                && System.currentTimeMillis() - c.timestamp < RING_TIMEOUT_MS
+                                && !CallActivity.isShowing(c.callId)
+                                && shown.add(c.callId))
+                            app.startActivity(
+                                    CallActivity.incoming(app, c)
+                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                    }
+                };
+        LocalDb.observe(observer);
     }
 
     public static synchronized void stop() {
-        if (ref != null && listener != null) ref.removeEventListener(listener);
-        ref = null;
-        listener = null;
-        watchingUid = null;
+        if (observer != null) LocalDb.removeObserver(observer);
+        observer = null;
+        shown.clear();
     }
 }

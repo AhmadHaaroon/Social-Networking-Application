@@ -14,15 +14,12 @@ if (file("google-services.json").exists()) {
         "Put the file directly in the app/ folder (not app/src/main).")
 }
 
-// Agora App ID lives in local.properties (agora.appId=...) so it is never committed.
+// The API address belongs to this development machine; Agora credentials stay on the server.
 val localProps = Properties().apply {
     val f = rootProject.file("local.properties")
     if (f.exists()) f.inputStream().use { load(it) }
 }
 val apiBaseUrl = providers.gradleProperty("kinnectApiBaseUrl").orNull ?: localProps.getProperty("kinnect.apiBaseUrl", "http://10.0.2.2/kinnect/api/")
-val agoraAppId: String = localProps.getProperty("agora.appId", "")
-// Optional: firebase.emulatorHost=10.0.2.2 points debug builds at the local Firebase Emulator Suite.
-val emulatorHost: String = localProps.getProperty("firebase.emulatorHost", "")
 
 android {
     namespace = "com.ahmadhaaroon.i221295"
@@ -37,8 +34,6 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-        buildConfigField("String", "AGORA_APP_ID", "\"$agoraAppId\"")
-        buildConfigField("String", "FIREBASE_EMULATOR_HOST", "\"\"")
 
         buildConfigField("String", "API_BASE_URL", "\"${apiBaseUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
 
@@ -51,7 +46,6 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "FIREBASE_EMULATOR_HOST", "\"$emulatorHost\"")
         }
         release {
             optimization {
@@ -81,8 +75,6 @@ dependencies {
     implementation(libs.material)
 
     implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.auth)
-    implementation(libs.firebase.database)
     implementation(libs.firebase.messaging)
 
     implementation(libs.glide)

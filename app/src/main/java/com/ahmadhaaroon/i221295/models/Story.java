@@ -1,9 +1,6 @@
 package com.ahmadhaaroon.i221295.models;
 
-import com.google.firebase.database.Exclude;
-import com.google.firebase.database.IgnoreExtraProperties;
 
-@IgnoreExtraProperties
 public class Story {
     public static final long LIFETIME_MS = 24L * 60 * 60 * 1000;
 
@@ -26,7 +23,6 @@ public class Story {
     public Story() {
     }
 
-    @Exclude
     public boolean isVideo() {
         return "video".equals(mediaType);
     }

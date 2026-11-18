@@ -1,8 +1,6 @@
 package com.ahmadhaaroon.i221295.models;
 
-import com.google.firebase.database.IgnoreExtraProperties;
 
-@IgnoreExtraProperties
 public class AppNotification {
     public static final String REACTION = "reaction";
     public static final String COMMENT = "comment";

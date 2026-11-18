@@ -5,4 +5,8 @@ return [
     'user' => 'kinnect_app',
     'password' => 'CHANGE_ME',
     'session_days' => 30,
+    // Keep the service-account file outside htdocs and outside the Android project.
+    'fcm_service_account' => '',
+    'agora_app_id' => '',
+    'agora_app_certificate' => '',
 ];

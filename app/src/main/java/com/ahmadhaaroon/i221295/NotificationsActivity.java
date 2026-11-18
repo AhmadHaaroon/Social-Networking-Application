@@ -18,9 +18,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.ValueEventListener;
 import com.ahmadhaaroon.i221295.models.AppNotification;
 import com.ahmadhaaroon.i221295.ui.AvatarView;
 import com.ahmadhaaroon.i221295.util.Badges;
@@ -61,49 +58,46 @@ public class NotificationsActivity extends AppCompatActivity {
         list.setLayoutManager(new LinearLayoutManager(this));
         list.setAdapter(adapter);
 
-        String me = Db.uid();
-        subs.value(Db.notifications(me).orderByChild("timestamp").limitToLast(100), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                items.clear();
-                for (DataSnapshot c : s.getChildren()) {
-                    AppNotification n = c.getValue(AppNotification.class);
-                    if (n == null) continue;
-                    n.id = c.getKey();
-                    items.add(0, n);
-                }
-                // Unread first ("New"), then read ("Earlier"); each newest first.
-                items.sort((a, b) -> a.read != b.read ? (a.read ? 1 : -1) : Long.compare(b.timestamp, a.timestamp));
-                adapter.notifyDataSetChanged();
-                findViewById(R.id.emptyNotifs).setVisibility(items.isEmpty() ? View.VISIBLE : View.GONE);
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
-        subs.value(Db.friendRequests(me), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                pendingRequests.clear();
-                for (DataSnapshot c : s.getChildren()) pendingRequests.add(c.getKey());
-                adapter.notifyDataSetChanged();
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
+        Runnable changed =
+                () -> {
+                    items.clear();
+                    for (org.json.JSONObject row :
+                            com.ahmadhaaroon.i221295.util.LocalDb.get().content("notifications"))
+                        items.add(
+                                com.ahmadhaaroon.i221295.util.ContentJson.read(
+                                        row, AppNotification.class));
+                    items.sort((a, b) ->
+                            a.read != b.read
+                                    ? (a.read ? 1 : -1)
+                                    : Long.compare(b.timestamp, a.timestamp));
+                    pendingRequests.clear();
+                    for (org.json.JSONObject row :
+                            com.ahmadhaaroon.i221295.util.LocalDb.get().relations()) {
+                        String other =
+                                row.optString("a").equals(Db.uid())
+                                        ? row.optString("b")
+                                        : row.optString("a");
+                        if (com.ahmadhaaroon.i221295.util.People.state(other) == Friends.INCOMING)
+                            pendingRequests.add(other);
+                    }
+                    adapter.notifyDataSetChanged();
+                    findViewById(R.id.emptyNotifs)
+                            .setVisibility(items.isEmpty() ? View.VISIBLE : View.GONE);
+                };
+        com.ahmadhaaroon.i221295.util.LocalDb.observe(changed);
+        subs.add(() -> com.ahmadhaaroon.i221295.util.LocalDb.removeObserver(changed));
+        changed.run();
+        com.ahmadhaaroon.i221295.util.Profiles.refresh(this);
     }
 
     /** Everything on screen counts as seen once the user leaves the screen. */
     @Override
     protected void onPause() {
         super.onPause();
-        Map<String, Object> up = new HashMap<>();
-        String me = Db.uid();
-        for (AppNotification n : items) if (!n.read) up.put("notifications/" + me + "/" + n.id + "/read", true);
-        if (!up.isEmpty()) Db.root().updateChildren(up);
+        for (AppNotification n : items)
+            if (!n.read)
+                com.ahmadhaaroon.i221295.util.Content.action(
+                        "notifications.read", com.ahmadhaaroon.i221295.util.Content.data(n.id));
     }
 
     @Override
@@ -113,9 +107,12 @@ public class NotificationsActivity extends AppCompatActivity {
     }
 
     private void open(AppNotification n) {
-        Db.notifications(Db.uid()).child(n.id).child("read").setValue(true);
+        com.ahmadhaaroon.i221295.util.Content.action(
+                "notifications.read", com.ahmadhaaroon.i221295.util.Content.data(n.id));
         if (n.postId != null) startActivity(CommentsActivity.intent(this, n.postId));
-        else if (AppNotification.SCREENSHOT.equals(n.type)) startActivity(ChatActivity.intent(this, n.fromUid));
+        else if ((AppNotification.SCREENSHOT.equals(n.type)
+                || "message".equals(n.type)
+                || "call".equals(n.type))) startActivity(ChatActivity.intent(this, n.fromUid));
         else PostActions.openProfile(this, n.fromUid);
     }
 
@@ -190,10 +187,17 @@ public class NotificationsActivity extends AppCompatActivity {
             v.findViewById(R.id.btnConfirm).setOnClickListener(x -> Friends.accept(n.fromUid));
             v.findViewById(R.id.btnDelete).setOnClickListener(x -> Friends.decline(n.fromUid));
             v.findViewById(R.id.row).setOnClickListener(x -> open(n));
-            v.findViewById(R.id.more).setOnClickListener(x -> new AlertDialog.Builder(NotificationsActivity.this)
-                    .setItems(new String[]{"Remove this notification"}, (d, w) ->
-                            Db.notifications(Db.uid()).child(n.id).removeValue())
-                    .show());
+            v.findViewById(R.id.more)
+                    .setOnClickListener(x ->
+                            new AlertDialog.Builder(NotificationsActivity.this)
+                                    .setItems(
+                                            new String[] {"Remove this notification"},
+                                            (d, w) ->
+                                                    com.ahmadhaaroon.i221295.util.Content.action(
+                                                            "notifications.delete",
+                                                            com.ahmadhaaroon.i221295.util.Content
+                                                                    .data(n.id)))
+                                    .show());
         }
 
         @Override

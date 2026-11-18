@@ -28,7 +28,16 @@ public final class PostActions {
 
     /** Sends the post into a friend's chat as a "post" message and bumps the share counter. */
     public static void share(Activity a, Post post) {
-        com.ahmadhaaroon.i221295.NavHelper.pendingFeature(a);
+        com.ahmadhaaroon.i221295.ui.FriendPicker.show(
+                a,
+                "Share post",
+                uid -> {
+                    com.ahmadhaaroon.i221295.models.Message m =
+                            Chats.text(post.text == null ? "Shared a post" : post.text);
+                    m.type = com.ahmadhaaroon.i221295.models.Message.POST;
+                    m.postId = post.id;
+                    Chats.send(uid, m);
+                });
     }
 
     public static void delete(Post post) {

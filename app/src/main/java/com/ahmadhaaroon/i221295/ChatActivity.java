@@ -32,10 +32,6 @@ import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.ValueEventListener;
 import com.ahmadhaaroon.i221295.models.AppNotification;
 import com.ahmadhaaroon.i221295.models.Message;
 import com.ahmadhaaroon.i221295.models.User;
@@ -46,7 +42,6 @@ import com.ahmadhaaroon.i221295.util.Chats;
 import com.ahmadhaaroon.i221295.util.Db;
 import com.ahmadhaaroon.i221295.util.Images;
 import com.ahmadhaaroon.i221295.util.MediaUpload;
-import com.ahmadhaaroon.i221295.util.Notifs;
 import com.ahmadhaaroon.i221295.util.ScreenshotDetector;
 import com.ahmadhaaroon.i221295.util.Subs;
 import com.ahmadhaaroon.i221295.util.TimeFmt;
@@ -86,9 +81,16 @@ public class ChatActivity extends AppCompatActivity {
     private ImageView sendButton;
     private View replyBar;
     private Message replyingTo;
-    private DatabaseReference myTyping;
+    private long lastTyping;
     private ScreenshotDetector screenshots;
 
+    private final ActivityResultLauncher<String[]> pickFile =
+            registerForActivityResult(
+                    new ActivityResultContracts.OpenDocument(),
+                    uri -> {
+                        if (uri != null)
+                            com.ahmadhaaroon.i221295.util.Attachments.send(this, uri, other);
+                    });
     private final ActivityResultLauncher<Intent> pickImage = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(), r -> sendImages(PictureSendActivity.results(r.getData())));
     private final ActivityResultLauncher<Intent> takePhoto = registerForActivityResult(
@@ -112,8 +114,7 @@ public class ChatActivity extends AppCompatActivity {
             return;
         }
         chatId = Db.chatId(me, other);
-        myTyping = Db.root().child("typing").child(chatId).child(me);
-        myTyping.onDisconnect().removeValue();
+
 
         list = findViewById(R.id.msgList);
         layoutManager = new LinearLayoutManager(this);
@@ -131,29 +132,31 @@ public class ChatActivity extends AppCompatActivity {
         findViewById(R.id.btnVideo).setOnClickListener(v -> startActivity(CallActivity.outgoing(this, other, true)));
         findViewById(R.id.btnCamera).setOnClickListener(v -> takePhoto.launch(CameraActivity.forCapture(this)));
         findViewById(R.id.btnGallery).setOnClickListener(v -> pickImage.launch(PictureSendActivity.pick(this, true, false)));
-        findViewById(R.id.btnPlus).setOnClickListener(v -> pickImage.launch(PictureSendActivity.pick(this, true, false)));
+        findViewById(R.id.btnPlus).setOnClickListener(v -> pickFile.launch(new String[] {"*/*"}));
         findViewById(R.id.btnMic).setOnClickListener(v -> Toast.makeText(this, "Voice notes are coming soon", Toast.LENGTH_SHORT).show());
         findViewById(R.id.btnEmoji).setOnClickListener(v -> EmojiPicker.show(this, input));
         findViewById(R.id.replyCancel).setOnClickListener(v -> setReply(null));
         sendButton.setOnClickListener(v -> sendText());
 
-        input.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int a, int b, int c) {
-            }
+        input.addTextChangedListener(
+                new TextWatcher() {
+                    @Override
+                    public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
 
-            @Override
-            public void onTextChanged(CharSequence s, int a, int b, int c) {
-                boolean hasText = s.toString().trim().length() > 0;
-                sendButton.setImageResource(hasText ? R.drawable.ic_send : R.drawable.ol_thumb);
-                if (hasText) myTyping.setValue(true);
-                else myTyping.removeValue();
-            }
+                    @Override
+                    public void onTextChanged(CharSequence s, int a, int b, int c) {
+                        boolean hasText = s.toString().trim().length() > 0;
+                        sendButton.setImageResource(
+                                hasText ? R.drawable.ic_send : R.drawable.ol_thumb);
+                        if (!hasText || System.currentTimeMillis() - lastTyping > 2000) {
+                            lastTyping = System.currentTimeMillis();
+                            com.ahmadhaaroon.i221295.util.Realtime.typing(other, hasText);
+                        }
+                    }
 
-            @Override
-            public void afterTextChanged(Editable s) {
-            }
-        });
+                    @Override
+                    public void afterTextChanged(Editable s) {}
+                });
 
         screenshots = new ScreenshotDetector(this, this::onScreenshot);
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) askForScreenshotAccess();
@@ -163,70 +166,40 @@ public class ChatActivity extends AppCompatActivity {
     private void listen(String me) {
         ((AvatarView) findViewById(R.id.hdrAvatar)).bind(other);
         ((AvatarView) findViewById(R.id.smallAvatar2)).bind(other);
-        subs.value(Db.user(other), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                User u = s.getValue(User.class);
-                if (u == null) return;
-                u.uid = other;
-                otherUser = u;
-                UserCache.put(u);
-                ((AvatarView) findViewById(R.id.hdrAvatar)).setUser(u);
-                ((TextView) findViewById(R.id.hdrName)).setText(u.displayName());
-                ((TextView) findViewById(R.id.hdrStatus)).setText(TimeFmt.lastSeen(u.online, u.lastSeen));
-                findViewById(R.id.hdrDot).setVisibility(u.online ? View.VISIBLE : View.GONE);
-                adapter.notifyItemChanged(0);
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
-        subs.value(Db.messages(chatId).orderByChild("timestamp").limitToLast(300), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                boolean atBottom = !list.canScrollVertically(1);
-                int before = messages.size();
-                messages.clear();
-                for (DataSnapshot c : s.getChildren()) {
-                    Message m = c.getValue(Message.class);
-                    if (m == null) continue;
-                    m.id = c.getKey();
-                    messages.add(m);
-                }
-                adapter.notifyDataSetChanged();
-                if (atBottom || messages.size() > before) list.scrollToPosition(adapter.getItemCount() - 1);
-                if (openChatUid != null) Chats.markRead(other);
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
-        // "Seen": the other person has no unread messages from me.
-        subs.value(Db.userChats(other).child(me).child("unread"), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                Integer unread = s.getValue(Integer.class);
-                otherHasRead = unread == null || unread == 0;
-                adapter.notifyDataSetChanged();
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
-        subs.value(Db.root().child("typing").child(chatId).child(other), new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot s) {
-                boolean typing = Boolean.TRUE.equals(s.getValue(Boolean.class));
-                findViewById(R.id.typingRow).setVisibility(typing ? View.VISIBLE : View.GONE);
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-            }
-        });
+        Runnable changed =
+                () -> {
+                    otherUser = UserCache.peek(other);
+                    if (otherUser != null) {
+                        ((AvatarView) findViewById(R.id.hdrAvatar)).setUser(otherUser);
+                        ((TextView) findViewById(R.id.hdrName)).setText(otherUser.displayName());
+                        ((TextView) findViewById(R.id.hdrStatus))
+                                .setText(TimeFmt.lastSeen(otherUser.online, otherUser.lastSeen));
+                        findViewById(R.id.hdrDot)
+                                .setVisibility(otherUser.online ? View.VISIBLE : View.GONE);
+                    }
+                    boolean bottom = !list.canScrollVertically(1);
+                    int before = messages.size();
+                    messages.clear();
+                    messages.addAll(Chats.messages(other));
+                    long latest = 0;
+                    for (Message m : messages)
+                        if (me.equals(m.senderId)) latest = Math.max(latest, m.timestamp);
+                    otherHasRead = latest > 0 && Chats.read(other, me).optLong("readAt") >= latest;
+                    findViewById(R.id.typingRow)
+                            .setVisibility(
+                                    Chats.read(other, me).optLong("typingUntil")
+                                                    > System.currentTimeMillis()
+                                            ? View.VISIBLE
+                                            : View.GONE);
+                    adapter.notifyDataSetChanged();
+                    if (bottom || messages.size() > before)
+                        list.scrollToPosition(adapter.getItemCount() - 1);
+                    if (other.equals(openChatUid)) Chats.markRead(other);
+                };
+        com.ahmadhaaroon.i221295.util.LocalDb.observe(changed);
+        subs.add(() -> com.ahmadhaaroon.i221295.util.LocalDb.removeObserver(changed));
+        changed.run();
+        com.ahmadhaaroon.i221295.util.Profiles.refresh(this);
     }
 
     @Override
@@ -234,16 +207,16 @@ public class ChatActivity extends AppCompatActivity {
         super.onResume();
         openChatUid = other;
         Chats.markRead(other);
-        PushNotifier.cancel(this, other.hashCode());
-        screenshots.start();
+        if (other != null) PushNotifier.cancel(this, other.hashCode());
+        if (screenshots != null) screenshots.start();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         openChatUid = null;
-        myTyping.removeValue();
-        screenshots.stop();
+        com.ahmadhaaroon.i221295.util.Realtime.typing(other, false);
+        if (screenshots != null) screenshots.stop();
     }
 
     @Override
@@ -258,9 +231,14 @@ public class ChatActivity extends AppCompatActivity {
         String text = input.getText().toString().trim();
         Message m = Chats.text(text.isEmpty() ? "👍" : text);
         attachReply(m);
-        Chats.send(other, m);
-        input.setText("");
-        setReply(null);
+        String draft = input.getText().toString();
+        Chats.send(
+                other,
+                m,
+                () -> {
+                    if (input.getText().toString().equals(draft)) input.setText("");
+                    setReply(null);
+                });
     }
 
     private void sendImages(List<Uri> uris) {
@@ -374,7 +352,7 @@ public class ChatActivity extends AppCompatActivity {
             m.event = "screenshot";
             m.text = me.firstName() + " took a screenshot";
             Chats.send(other, m);
-            Notifs.send(other, AppNotification.SCREENSHOT, null, "took a screenshot of your chat.");
+
         });
     }
 
@@ -415,16 +393,8 @@ public class ChatActivity extends AppCompatActivity {
             name.setText(otherUser.displayName());
             String where = otherUser.location == null || otherUser.location.isEmpty() ? "" : " · Lives in " + otherUser.location;
             details.setText("Kinnect" + where);
-            Db.friends(Db.uid()).child(other).addListenerForSingleValueEvent(new ValueEventListener() {
-                @Override
-                public void onDataChange(@NonNull DataSnapshot s) {
-                    if (s.exists()) details.setText("You're friends on Kinnect" + where);
-                }
-
-                @Override
-                public void onCancelled(@NonNull DatabaseError error) {
-                }
-            });
+            if (com.ahmadhaaroon.i221295.util.People.friends(Db.uid()).contains(other))
+                details.setText("You're friends on Kinnect" + where);
         }
 
         private void bindMessage(View v, int i) {
@@ -473,9 +443,19 @@ public class ChatActivity extends AppCompatActivity {
             FrameLayoutParamsHelper.gravity(heart, mine ? Gravity.BOTTOM | Gravity.START : Gravity.BOTTOM | Gravity.END);
 
             TextView meta = v.findViewById(R.id.meta);
-            boolean seen = mine && next == null && otherHasRead;
+            boolean seen = mine && !m.pending && next == null && otherHasRead;
             StringBuilder sb = new StringBuilder();
-            if (m.edited) sb.append(getString(R.string.edited));
+            String sync = com.ahmadhaaroon.i221295.util.Content.status(m.id);
+            if (!sync.isEmpty()) sb.append(sync);
+            if (m.edited) {
+                if (sb.length() > 0) sb.append(" · ");
+                sb.append(getString(R.string.edited));
+            }
+            org.json.JSONObject attempted =
+                    com.ahmadhaaroon.i221295.util.LocalDb.get().failedMessage(m.id);
+            if (attempted != null)
+                sb.append(attempted.has("text") ? " · View attempted edit" : " · Details");
+            meta.setOnClickListener(attempted == null ? null : view -> showAttempt(attempted));
             if (seen) {
                 if (sb.length() > 0) sb.append(" · ");
                 sb.append(getString(R.string.seen));
@@ -535,7 +515,8 @@ public class ChatActivity extends AppCompatActivity {
             ImageView image = v.findViewById(R.id.msgImage);
             TextView caption = v.findViewById(R.id.msgCaption);
             TextView text = v.findViewById(R.id.msgText);
-            boolean hasImage = m.imageUrl != null && !m.imageUrl.isEmpty();
+            boolean hasImage =
+                    Message.IMAGE.equals(m.type) && m.imageUrl != null && !m.imageUrl.isEmpty();
             image.setVisibility(hasImage ? View.VISIBLE : View.GONE);
             if (hasImage) Images.load(image, m.imageUrl);
 
@@ -543,7 +524,11 @@ public class ChatActivity extends AppCompatActivity {
             caption.setVisibility(isPost ? View.VISIBLE : View.GONE);
             if (isPost) caption.setText(R.string.shared_a_post);
 
-            String body = m.text;
+            String body =
+                    Message.FILE.equals(m.type) || Message.VIDEO.equals(m.type)
+                            ? (Message.VIDEO.equals(m.type) ? "▶ Video: " : "File: ")
+                                    + (m.fileName == null ? "Attachment" : m.fileName)
+                            : m.text;
             if (isPost && (body == null || body.isEmpty())) body = getString(R.string.view_post);
             boolean hasText = body != null && !body.isEmpty();
             text.setVisibility(hasText ? View.VISIBLE : View.GONE);
@@ -553,8 +538,30 @@ public class ChatActivity extends AppCompatActivity {
         }
     }
 
+    private void showAttempt(org.json.JSONObject attempted) {
+        String text = attempted.optString("text", "The message could not be deleted.");
+        AlertDialog.Builder dialog =
+                new AlertDialog.Builder(this)
+                        .setTitle("Change could not sync")
+                        .setMessage(text)
+                        .setNegativeButton("Close", null);
+        if (attempted.has("text"))
+            dialog.setPositiveButton(
+                    "Copy",
+                    (d, w) -> {
+                        android.content.ClipboardManager clipboard =
+                                (android.content.ClipboardManager)
+                                        getSystemService(CLIPBOARD_SERVICE);
+                        clipboard.setPrimaryClip(
+                                android.content.ClipData.newPlainText("Attempted edit", text));
+                    });
+        dialog.show();
+    }
+
     private void openContent(Message m) {
-        if (Message.POST.equals(m.type) && m.postId != null) {
+        if (Message.FILE.equals(m.type) || Message.VIDEO.equals(m.type)) {
+            com.ahmadhaaroon.i221295.util.Attachments.open(this, m);
+        } else if (Message.POST.equals(m.type) && m.postId != null) {
             startActivity(CommentsActivity.intent(this, m.postId));
         } else if (m.imageUrl != null) {
             ArrayList<String> one = new ArrayList<>();

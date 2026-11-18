@@ -68,16 +68,7 @@ public final class Images {
             });
             return;
         }
-        if (!MediaCache.isRef(ref)) {
-            apply(Glide.with(v), v, ref, mode);
-            return;
-        }
-        Glide.with(v).clear(v);
-        MediaCache.resolve(v.getContext(), ref, file -> {
-            // The view may have been recycled for another item while the file was loading.
-            if (file == null || !ref.equals(v.getTag(R.id.media_ref)) || !alive(v.getContext())) return;
-            apply(Glide.with(v), v, file, mode);
-        });
+        apply(Glide.with(v), v, ref, mode);
     }
 
     private static void apply(RequestManager glide, ImageView v, Object model, int mode) {

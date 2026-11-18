@@ -15,7 +15,7 @@
 local.properties
 
 # Firebase
-# Service-account key used to send FCM pushes from the app (never commit it)
+# Legacy service-account file (never commit it)
 app/src/main/assets/fcm-service-account.json
 .firebase/
 firebase-debug.log
@@ -33,3 +33,8 @@ google-services.json
 
 # Backend test runner cache
 __pycache__/
+
+# Server-only service-account keys and worker state
+/backend/*service-account*.json
+/backend/secrets/
+/backend/*.log

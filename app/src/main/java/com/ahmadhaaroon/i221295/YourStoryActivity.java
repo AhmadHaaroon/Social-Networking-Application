@@ -111,7 +111,25 @@ public class YourStoryActivity extends AppCompatActivity implements StoryPlayer.
     }
 
     private void sendToFriend() {
-        NavHelper.pendingFeature(this);
+        Story story = player.current();
+        if (story == null) return;
+        com.ahmadhaaroon.i221295.ui.FriendPicker.show(
+                this,
+                "Send story",
+                uid -> {
+                    com.ahmadhaaroon.i221295.models.Message m =
+                            com.ahmadhaaroon.i221295.util.Chats.text(
+                                    story.text == null ? "Shared a story" : story.text);
+                    if (story.mediaUrl != null) {
+                        m.type =
+                                story.isVideo()
+                                        ? com.ahmadhaaroon.i221295.models.Message.VIDEO
+                                        : com.ahmadhaaroon.i221295.models.Message.IMAGE;
+                        m.imageUrl = story.mediaUrl;
+                        m.mime = story.isVideo() ? "video/mp4" : "image/jpeg";
+                    }
+                    com.ahmadhaaroon.i221295.util.Chats.send(uid, m);
+                });
     }
 
     private void moreOptions() {

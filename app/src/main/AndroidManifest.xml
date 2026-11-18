@@ -81,6 +81,11 @@
         <activity android:name=".MarketplaceActivity" android:exported="false" />
         <activity android:name=".MediaViewerActivity" android:exported="false" />
 
+        <provider android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.attachments" android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/attachment_paths" />
+        </provider>
+
         <service
             android:name=".services.KinnectMessagingService"
             android:exported="false">

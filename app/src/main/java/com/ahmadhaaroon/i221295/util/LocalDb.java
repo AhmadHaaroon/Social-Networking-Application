@@ -429,9 +429,21 @@ public final class LocalDb extends SQLiteOpenHelper {
     private void acceptContent(JSONObject state) throws Exception {
         SQLiteDatabase db = getWritableDatabase();
         db.delete("server_content", null, null);
-        String[] kinds = {"posts", "comments", "reactions", "comment_likes", "stories", "story_views"};
+        String[] kinds = {
+            "posts",
+            "comments",
+            "reactions",
+            "comment_likes",
+            "stories",
+            "story_views",
+            "messages",
+            "chat_reads",
+            "calls",
+            "notifications"
+        };
         for (String kind : kinds) {
-            JSONArray rows = state.getJSONArray(kind);
+            JSONArray rows = state.optJSONArray(kind);
+            if (rows == null) continue;
             for (int i = 0; i < rows.length(); i++) putContent("server_content", kind, rows.getJSONObject(i));
         }
         rebaseContent();
@@ -441,14 +453,60 @@ public final class LocalDb extends SQLiteOpenHelper {
         SQLiteDatabase db = getWritableDatabase();
         db.delete("content_cache", null, null);
         db.execSQL("INSERT INTO content_cache SELECT * FROM server_content");
-        try (Cursor c = db.rawQuery("SELECT operation, payload, user_id, state, error FROM pending_actions WHERE operation LIKE 'posts.%' OR operation LIKE 'comments.%' OR operation LIKE 'stories.%' ORDER BY sequence", null)) {
+        try (Cursor c =
+                db.rawQuery(
+                        "SELECT operation, payload, user_id, state, error FROM pending_actions"
+                            + " WHERE operation LIKE 'posts.%' OR operation LIKE 'comments.%' OR"
+                            + " operation LIKE 'stories.%' OR operation LIKE 'messages.%' OR"
+                            + " operation LIKE 'chat.%' OR operation LIKE 'notifications.%' ORDER"
+                            + " BY sequence",
+                        null)) {
             while (c.moveToNext()) {
                 String op = c.getString(0), me = c.getString(2);
                 JSONObject p = new JSONObject(c.getString(1)).getJSONObject("data");
                 String id = p.getString("id");
                 String kind = op.substring(0, op.indexOf('.'));
                 boolean failed = "failed".equals(c.getString(3));
-                if (op.endsWith(".create")) {
+                if (!failed
+                        && (op.equals("messages.edit")
+                                || op.equals("messages.delete")
+                                || op.equals("messages.heart"))) {
+                    for (JSONObject m : content("messages"))
+                        if (id.equals(m.optString("id"))) {
+                            if (op.equals("messages.edit"))
+                                m.put("text", p.getString("text")).put("edited", true);
+                            else if (op.equals("messages.delete"))
+                                m.put("deleted", true)
+                                        .put("text", "Message deleted")
+                                        .put("imageUrl", JSONObject.NULL);
+                            else {
+                                JSONObject h = m.optJSONObject("hearts");
+                                if (h == null) h = new JSONObject();
+                                if (p.optBoolean("liked")) h.put(me, true);
+                                else h.remove(me);
+                                m.put("hearts", h);
+                            }
+                            m.put("pending", true);
+                            putContent("content_cache", "messages", m);
+                        }
+                } else if (!failed && (op.equals("chat.read") || op.equals("chat.hide"))) {
+                    String other = p.getString("other");
+                    JSONObject row =
+                            new JSONObject()
+                                    .put("id", me + ":" + other)
+                                    .put("owner", me)
+                                    .put("other", other);
+                    for (JSONObject r : content("chat_reads"))
+                        if (row.getString("id").equals(r.optString("id"))) row = r;
+                    row.put(op.equals("chat.read") ? "readAt" : "hiddenAt", p.optLong("through"));
+                    putContent("content_cache", "chat_reads", row);
+                } else if (!failed && op.equals("notifications.read")) {
+                    for (JSONObject n : content("notifications"))
+                        if (id.equals(n.optString("id"))) {
+                            n.put("read", true);
+                            putContent("content_cache", "notifications", n);
+                        }
+                } else if (op.endsWith(".create")) {
                     p.put("uid", me).put("pending", !failed);
                     if (failed) p.put("syncError", c.getString(4));
                     putContent("content_cache", kind, p);
@@ -518,8 +576,34 @@ public final class LocalDb extends SQLiteOpenHelper {
         changed();
     }
 
+    public synchronized JSONObject failedMessage(String id) {
+        try (Cursor c =
+                getReadableDatabase()
+                        .rawQuery(
+                                "SELECT payload FROM pending_actions WHERE state = 'failed' AND"
+                                    + " operation IN ('messages.edit','messages.delete') ORDER BY"
+                                    + " sequence DESC",
+                                null)) {
+            while (c.moveToNext()) {
+                JSONObject p = new JSONObject(c.getString(0)).getJSONObject("data");
+                if (id.equals(p.optString("id"))) return p;
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+        return null;
+    }
+
     public synchronized String contentStatus(String id) {
-        try (Cursor c = getReadableDatabase().rawQuery("SELECT payload, state, error FROM pending_actions WHERE operation LIKE 'posts.%' OR operation LIKE 'comments.%' OR operation LIKE 'stories.%' ORDER BY sequence DESC", null)) {
+        try (Cursor c =
+                getReadableDatabase()
+                        .rawQuery(
+                                "SELECT payload, state, error FROM pending_actions WHERE operation"
+                                    + " LIKE 'posts.%' OR operation LIKE 'comments.%' OR operation"
+                                    + " LIKE 'stories.%' OR operation LIKE 'messages.%' OR"
+                                    + " operation LIKE 'chat.%' OR operation LIKE 'notifications.%'"
+                                    + " ORDER BY sequence DESC",
+                                null)) {
             while (c.moveToNext()) {
                 JSONObject p = new JSONObject(c.getString(0)).optJSONObject("data");
                 if (p != null && (id.equals(p.optString("id")) || id.equals(p.optString("postId")))) return "failed".equals(c.getString(1)) ? "Couldn't sync: " + c.getString(2) : "Pending";

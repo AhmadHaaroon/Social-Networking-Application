@@ -35,23 +35,9 @@ NavHelper {
         if (open(a, target)) a.finish();
     }
 
-    /** Temporary boundary while each existing screen is migrated to PHP. */
     public static boolean open(Activity a, Class<?> target) {
-        if (target != StartSocialMediaActivity.class && target != MenuActivity.class
-                && target != MyProfileActivity.class && target != EditProfileActivity.class
-                && target != MarketplaceActivity.class && target != FriendsActivity.class
-                && target != SearchActivity.class && target != ProfileActivity.class
-                && target != CreatePostActivity.class && target != CommentsActivity.class
-                && target != LikeActivity.class && target != CameraActivity.class) {
-            pendingFeature(a);
-            return false;
-        }
         a.startActivity(new Intent(a, target));
         return true;
-    }
-
-    public static void pendingFeature(Activity a) {
-        Toast.makeText(a, "This feature will be connected in a later migration stage.", Toast.LENGTH_SHORT).show();
     }
 
     public static void goHome(Activity a) {

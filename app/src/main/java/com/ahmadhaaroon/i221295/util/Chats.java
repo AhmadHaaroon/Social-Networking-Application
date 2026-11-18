@@ -1,129 +1,144 @@
 package com.ahmadhaaroon.i221295.util;
 
-import androidx.annotation.NonNull;
-
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.ServerValue;
-import com.google.firebase.database.ValueEventListener;
 import com.ahmadhaaroon.i221295.models.Message;
-import com.ahmadhaaroon.i221295.services.PushSender;
+import com.ahmadhaaroon.i221295.models.ChatSummary;
+import org.json.JSONObject;
+import java.util.*;
 
-import java.util.HashMap;
-import java.util.Map;
-
-/**
- * Sending, editing and deleting chat messages. Each send writes the message plus both users'
- * chat-list rows (userChats) in one multi-path update and bumps the receiver's unread counter.
- * After the write succeeds PushSender sends the FCM push to the other person.
- */
+/** SQLite conversations and ordered, idempotent web-service actions. */
 public final class Chats {
-
-    private Chats() {
-    }
+    private Chats() {}
 
     public static Message text(String text) {
         Message m = new Message();
-        m.type = Message.TEXT;
         m.text = text;
         return m;
     }
 
-    public static void send(String otherUid, Message m) {
-        String me = Db.uid();
-        if (me == null || otherUid == null) return;
-        String chatId = Db.chatId(me, otherUid);
-        DatabaseReference ref = Db.messages(chatId).push();
-        m.id = ref.getKey();
-        m.senderId = me;
+    public static void send(String other, Message m) {
+        send(other, m, () -> {});
+    }
+
+    public static void send(String other, Message m, Runnable done) {
+        m.id = UUID.randomUUID().toString();
+        m.senderId = Db.uid();
+        m.recipientId = other;
         m.timestamp = System.currentTimeMillis();
+        Content.action(
+                "messages.create",
+                ContentJson.write(m),
+                done,
+                e ->
+                        android.widget.Toast.makeText(
+                                        Realtime.context(),
+                                        e.getMessage(),
+                                        android.widget.Toast.LENGTH_LONG)
+                                .show());
+    }
 
-        Map<String, Object> up = new HashMap<>();
-        up.put("messages/" + chatId + "/" + m.id, m);
-        putSummary(up, me, otherUid, chatId, preview(m), me, m.timestamp);
-        putSummary(up, otherUid, me, chatId, preview(m), me, m.timestamp);
-        Db.root().updateChildren(up).addOnSuccessListener(v -> {
-            Db.userChats(otherUid).child(me).child("unread").setValue(ServerValue.increment(1));
-            PushSender.message(otherUid, m);
+    public static void edit(String other, Message m, String text) {
+        Content.action("messages.edit", Content.value(m.id, "text", text));
+    }
+
+    public static void delete(String other, Message m) {
+        Content.action("messages.delete", Content.data(m.id));
+    }
+
+    public static void toggleHeart(String other, Message m) {
+        Content.action(
+                "messages.heart",
+                Content.value(m.id, "liked", !Boolean.TRUE.equals(m.hearts.get(Db.uid()))));
+    }
+
+    public static List<Message> messages(String other) {
+        List<Message> out = new ArrayList<>();
+        String me = Db.uid();
+        for (JSONObject r : LocalDb.get().content("messages")) {
+            Message m = ContentJson.read(r, Message.class);
+            if ((Objects.equals(me, m.senderId) && Objects.equals(other, m.recipientId))
+                    || (Objects.equals(other, m.senderId) && Objects.equals(me, m.recipientId)))
+                out.add(m);
+        }
+        out.sort((a, b) -> {
+            int t = Long.compare(a.timestamp, b.timestamp);
+            return t == 0 ? a.id.compareTo(b.id) : t;
         });
+        return out;
     }
 
-    public static void edit(String otherUid, Message m, String newText) {
+    public static JSONObject read(String owner, String other) {
+        for (JSONObject r : LocalDb.get().content("chat_reads"))
+            if (owner.equals(r.optString("owner")) && other.equals(r.optString("other"))) return r;
+        return new JSONObject();
+    }
+
+    public static void markRead(String other) {
+        if (Db.uid() == null || other == null) return;
+        long through = 0;
+        for (Message m : messages(other))
+            if (other.equals(m.senderId) && !m.pending) through = Math.max(through, m.timestamp);
+        if (through > read(Db.uid(), other).optLong("readAt"))
+            actionRead(other, "chat.read", through);
+    }
+
+    public static void hide(String other) {
+        long through = 0;
+        for (Message m : messages(other)) through = Math.max(through, m.timestamp);
+        actionRead(other, "chat.hide", through);
+    }
+
+    private static void actionRead(String other, String op, long through) {
+        try {
+            Content.action(
+                    op,
+                    Content.value(UUID.randomUUID().toString(), "other", other)
+                            .put("through", through));
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    public static List<ChatSummary> summaries() {
+        Map<String, ChatSummary> map = new HashMap<>();
         String me = Db.uid();
-        if (me == null || !m.canModify(me, System.currentTimeMillis())) return;
-        String chatId = Db.chatId(me, otherUid);
-        Map<String, Object> up = new HashMap<>();
-        up.put("text", newText);
-        up.put("edited", true);
-        Db.messages(chatId).child(m.id).updateChildren(up).addOnSuccessListener(v -> refreshSummaries(otherUid));
-    }
-
-    public static void delete(String otherUid, Message m) {
-        String me = Db.uid();
-        if (me == null || !m.canModify(me, System.currentTimeMillis())) return;
-        String chatId = Db.chatId(me, otherUid);
-        Db.messages(chatId).child(m.id).removeValue().addOnSuccessListener(v -> refreshSummaries(otherUid));
-    }
-
-    public static void toggleHeart(String otherUid, Message m) {
-        String me = Db.uid();
-        if (me == null) return;
-        DatabaseReference h = Db.messages(Db.chatId(me, otherUid)).child(m.id).child("hearts").child(me);
-        boolean hearted = m.hearts != null && Boolean.TRUE.equals(m.hearts.get(me));
-        if (hearted) h.removeValue();
-        else h.setValue(true);
-    }
-
-    public static void markRead(String otherUid) {
-        String me = Db.uid();
-        if (me == null) return;
-        Db.userChats(me).child(otherUid).child("unread").setValue(0);
-    }
-
-    /** Keeps the chat list preview in sync after the latest message was edited or deleted. */
-    private static void refreshSummaries(String otherUid) {
-        String me = Db.uid();
-        String chatId = Db.chatId(me, otherUid);
-        Db.messages(chatId).orderByChild("timestamp").limitToLast(1)
-                .addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(@NonNull DataSnapshot snapshot) {
-                        Message last = null;
-                        for (DataSnapshot c : snapshot.getChildren()) last = c.getValue(Message.class);
-                        String text = last == null ? "" : preview(last);
-                        String sender = last == null ? me : last.senderId;
-                        long ts = last == null ? System.currentTimeMillis() : last.timestamp;
-                        Map<String, Object> up = new HashMap<>();
-                        putSummary(up, me, otherUid, chatId, text, sender, ts);
-                        putSummary(up, otherUid, me, chatId, text, sender, ts);
-                        Db.root().updateChildren(up);
-                    }
-
-                    @Override
-                    public void onCancelled(@NonNull DatabaseError error) {
-                    }
-                });
-    }
-
-    private static void putSummary(Map<String, Object> up, String owner, String other, String chatId,
-                                   String last, String sender, long ts) {
-        String base = "userChats/" + owner + "/" + other + "/";
-        up.put(base + "chatId", chatId);
-        up.put(base + "otherUid", other);
-        up.put(base + "lastMessage", last);
-        up.put(base + "lastSenderId", sender);
-        up.put(base + "timestamp", ts);
+        if (me == null) return new ArrayList<>();
+        for (JSONObject r : LocalDb.get().content("messages")) {
+            Message m = ContentJson.read(r, Message.class);
+            String other = me.equals(m.senderId) ? m.recipientId : m.senderId;
+            JSONObject read = read(me, other);
+            if (m.timestamp <= read.optLong("hiddenAt")) continue;
+            ChatSummary c = map.get(other);
+            if (c == null) {
+                c = new ChatSummary();
+                c.otherUid = other;
+                c.chatId = Db.chatId(me, other);
+                map.put(other, c);
+            }
+            if (!me.equals(m.senderId) && m.timestamp > read.optLong("readAt")) c.unread++;
+            if (m.timestamp >= c.timestamp) {
+                c.timestamp = m.timestamp;
+                c.lastMessage = preview(m);
+                c.lastSenderId = m.senderId;
+            }
+        }
+        List<ChatSummary> out = new ArrayList<>(map.values());
+        out.sort((a, b) -> Long.compare(b.timestamp, a.timestamp));
+        return out;
     }
 
     public static String preview(Message m) {
-        if (m == null) return "";
-        switch (m.type == null ? Message.TEXT : m.type) {
-            case Message.IMAGE: return "Sent a photo";
-            case Message.POST: return "Shared a post";
-            case Message.STORY_REPLY: return "Replied to a story: " + (m.text == null ? "" : m.text);
-            case Message.CALL: return m.text == null ? "Call" : m.text;
-            default: return m.text == null ? "" : m.text;
+        if (m.deleted) return "Message deleted";
+        switch (m.type) {
+            case Message.IMAGE:
+                return "Sent a photo";
+            case Message.VIDEO:
+                return "Sent a video";
+            case Message.FILE:
+                return "Sent a file";
+            case Message.POST:
+                return "Shared a post";
+            default:
+                return m.text == null ? "" : m.text;
         }
     }
 }
